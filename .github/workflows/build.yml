@@ -1,0 +1,33 @@
+name: Build Windows installer
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      EVS_ACCOUNT_NAME: ${{ secrets.EVS_ACCOUNT_NAME }}
+      EVS_PASSWD: ${{ secrets.EVS_PASSWD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Get the Widevine build of Electron (same one the console uses now)
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri 'https://github.com/castlabs/electron-releases/releases/download/v34.5.8%2Bwvcus/electron-v34.5.8%2Bwvcus-win32-x64.zip' -OutFile electron.zip
+          Expand-Archive electron.zip -DestinationPath electron-dist -Force
+          Get-ChildItem electron-dist | Select-Object -First 8
+      - run: pip install castlabs-evs
+      - run: npm install
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: My-Console-Setup
+          path: dist/My-Console-Setup.exe

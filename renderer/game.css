@@ -1,0 +1,97 @@
+/* v965: the game page and the loading page, written from scratch (every old .gx* rule was removed from the other style files).
+   The page keeps the game's own colours; the wallpaper palette (--skacc, --skglow) colours only rings, outlines, bars and dots. */
+body.is-game { --gA:var(--skacc,#7cf0c4); --gG:var(--skglow,124,240,196); }
+
+/* ---------- game page ---------- */
+.gxp { position:absolute; inset:0; overflow:hidden; }
+.gxp .gxv { position:absolute; inset:0; z-index:0; }
+.gxp .gxv video { width:100%; height:100%; object-fit:cover; display:block; }
+.gxp::after { content:''; position:absolute; inset:0; z-index:1; pointer-events:none; background:linear-gradient(0deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 30%), linear-gradient(180deg, rgba(0,0,0,.4) 0%, rgba(0,0,0,0) 18%); }
+.gv-sheet { position:absolute; z-index:2; left:0; top:0; bottom:0; width:calc(56 * var(--w)); box-sizing:border-box; display:flex; flex-direction:column; justify-content:flex-end; padding:0 calc(6 * var(--w)) calc(5.6 * var(--w)) calc(5 * var(--w)); background:linear-gradient(90deg, rgba(4,5,8,.95) 0%, rgba(4,5,8,.9) 58%, rgba(4,5,8,.55) 84%, rgba(4,5,8,0) 100%); animation:gvIn .5s var(--dissolve, ease) both; }
+@keyframes gvIn { from { opacity:0; transform:translateX(-1.4rem); } to { opacity:1; transform:none; } }
+
+.gv-head { display:flex; align-items:flex-end; gap:calc(2 * var(--w)); }
+.gv-cover { flex:none; position:relative; width:calc(10.4 * var(--w)); height:calc(10.4 * var(--w)); border-radius:calc(.8 * var(--w)); overflow:hidden; background:#10151f; box-shadow:0 1.2rem 3rem rgba(0,0,0,.6), 0 0 0 1.5px rgba(255,255,255,.22); }
+.gv-cover .gxart { position:absolute; inset:0; background-size:cover; background-position:center; }
+.gv-cover .gxart:not(.noart) { background-image:var(--art); }
+.gv-id { min-width:0; flex:1; }
+.gv-eye { display:flex; align-items:center; gap:calc(.8 * var(--w)); font-size:calc(.85 * var(--w)); letter-spacing:.2em; text-transform:uppercase; color:rgba(255,255,255,.62); margin-bottom:calc(.8 * var(--w)); white-space:nowrap; overflow:hidden; }
+.gv-eye b { color:var(--gA); font-weight:800; }
+.gv-eye span:last-child { overflow:hidden; text-overflow:ellipsis; }
+.gv-plat { display:inline-flex; align-items:center; }
+.gv-plat img, .gv-plat svg { height:calc(1.5 * var(--w)); width:auto; opacity:.9; }
+.gv-title { font-size:calc(3.5 * var(--w)); line-height:1.06; font-weight:800; letter-spacing:-.025em; color:#fff; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; text-shadow:0 .2rem 1.6rem rgba(0,0,0,.5); padding-bottom:.08em; }
+
+.gv-chips { display:flex; align-items:center; flex-wrap:wrap; gap:calc(.7 * var(--w)); margin-top:calc(1.8 * var(--w)); }
+.gv-mc { font-size:calc(1 * var(--w)); font-weight:800; color:#fff; padding:.2em .6em; border-radius:.5em; border:1.5px solid var(--gA); }
+.gv-chips .stars { font-size:calc(1.1 * var(--w)); }
+.gv-chips .stars .sf { color:#ffd166; }
+.gv-chips em { font-style:normal; font-size:calc(.85 * var(--w)); color:rgba(255,255,255,.85); padding:.3em .9em; border-radius:9em; border:1px solid rgba(255,255,255,.26); }
+
+.gv-tease { margin:calc(1.6 * var(--w)) 0 0; max-width:calc(40 * var(--w)); font-size:calc(1.1 * var(--w)); line-height:1.55; color:rgba(255,255,255,.78); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.gxdesc { display:none; margin:calc(1.6 * var(--w)) 0 0; max-width:calc(42 * var(--w)); max-height:calc(15 * var(--w)); overflow:auto; padding-left:calc(1.4 * var(--w)); border-left:2px solid var(--gA); font-size:calc(1.08 * var(--w)); line-height:1.7; color:rgba(255,255,255,.88); scrollbar-width:none; }
+.gxdesc::-webkit-scrollbar { display:none; }
+.gxdesc p { margin:0 0 .8em; }
+.gxp.open .gv-tease, .gxp.open .gv-stats { display:none; }
+.gxp.open .gxdesc { display:block; animation:gvIn .35s ease both; }
+
+.gv-stats { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:calc(1.3 * var(--w)) calc(2 * var(--w)); max-width:calc(42 * var(--w)); margin-top:calc(2 * var(--w)); padding-top:calc(1.6 * var(--w)); border-top:1px solid rgba(255,255,255,.16); }
+.gv-stats > div { min-width:0; }
+.gv-stats small { display:block; font-size:calc(.68 * var(--w)); letter-spacing:.17em; text-transform:uppercase; color:rgba(255,255,255,.46); margin-bottom:.35em; }
+.gv-stats b { display:block; font-size:calc(1.08 * var(--w)); font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.gv-stats .gxbar { display:block; height:.22rem; margin-top:.55em; border-radius:9em; background:rgba(255,255,255,.16); overflow:hidden; }
+.gv-stats .gxbar i { display:block; height:100%; border-radius:inherit; background:var(--gA); }
+.gv-stats .gxdot { display:inline-block; width:.5rem; height:.5rem; border-radius:50%; background:rgba(255,255,255,.4); margin-top:.5em; }
+.gv-stats .gxdot.on { background:var(--gA); box-shadow:0 0 .8rem var(--gA); }
+.gv-stats .gxdot.off { background:#ff6b6b; }
+
+.gxbtns { display:flex; align-items:center; gap:calc(1 * var(--w)); margin-top:calc(2.2 * var(--w)); }
+.gxplayb { position:relative; display:inline-flex; align-items:center; gap:.7em; height:calc(3.7 * var(--w)); padding:0 calc(2.8 * var(--w)) 0 calc(1.1 * var(--w)); border:0; border-radius:9em; background:#fff; color:#0a0b0f; font-size:calc(1.3 * var(--w)); font-weight:800; letter-spacing:.04em; cursor:pointer; overflow:hidden; transition:transform .16s; }
+.gxplayb span { color:inherit; position:relative; }
+.gxplayb i { position:relative; display:grid; place-items:center; width:calc(2.3 * var(--w)); height:calc(2.3 * var(--w)); border-radius:50%; background:var(--gA); }
+.gxplayb i svg { width:50%; height:50%; fill:#0a0b0f; color:#0a0b0f; }
+.gxplayb:focus, .gxplayb.sel { transform:scale(1.05); box-shadow:0 0 0 .2rem var(--gA), 0 0 3rem rgba(var(--gG), .5); outline:none; }
+.gxplayb.gxinst { background:linear-gradient(90deg, var(--gA) var(--p, 0%), rgba(255,255,255,.16) var(--p, 0%)); color:#fff; }
+.gv-b { display:grid; place-items:center; width:calc(3.7 * var(--w)); height:calc(3.7 * var(--w)); padding:0; border-radius:50%; border:1.5px solid rgba(255,255,255,.3); background:rgba(255,255,255,.06); color:#fff; cursor:pointer; transition:transform .16s, border-color .16s; }
+.gv-b svg { width:calc(1.7 * var(--w)); height:calc(1.7 * var(--w)); }
+.gv-b:focus, .gv-b.sel { border-color:var(--gA); background:rgba(var(--gG), .16); transform:scale(1.08); box-shadow:0 0 2rem rgba(var(--gG), .4); outline:none; }
+.gxinfo { margin-top:calc(1 * var(--w)); font-size:calc(1 * var(--w)); color:rgba(255,255,255,.7); }
+
+/* ---------- loading page: a quiet, centred ring ---------- */
+@property --pn { syntax:'<integer>'; inherits:true; initial-value:0; }
+#launch { --lA:var(--skacc,#7cf0c4); --lG:var(--skglow,124,240,196); background-image:none !important; background-color:#04050a !important; overflow:hidden; }
+#launch.hascv { display:flex !important; flex-direction:column; align-items:center; justify-content:center; gap:0; }
+#launch .lcv, #launch .ring, #launch .lh { display:none !important; }
+#launch .lbg { position:absolute; inset:-3%; z-index:0; background-size:cover; background-position:center; filter:blur(7px) brightness(.62) saturate(1.15); transform:scale(1.04); }
+#launch::before { content:''; position:absolute; inset:0; z-index:1; pointer-events:none; background:radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.05) 0%, rgba(0,0,0,.6) 100%); }
+#launch.hascv > .ls, #launch.hascv > .lt, #launch.hascv > .bar { position:relative !important; z-index:2; grid-column:auto !important; grid-row:auto !important; justify-self:auto !important; align-self:auto !important; }
+#launch.hascv .ls { order:1; margin:0 0 2.2vh !important; font-size:.85vw !important; font-weight:700; letter-spacing:.55em; text-indent:.55em; text-transform:uppercase; color:rgba(255,255,255,.62) !important; width:auto !important; display:block; }
+#launch.hascv .ls::before, #launch.hascv .ls::after { content:none !important; }
+#launch.hascv .lt { order:2; margin:0 0 7vh !important; max-width:70vw; text-align:center !important; font-size:4.2vw !important; font-weight:800 !important; line-height:1.05 !important; letter-spacing:-.03em; color:#fff !important; text-shadow:0 .3rem 3rem rgba(0,0,0,.7); }
+#launch.hascv .lt.lg img { width:30vw; height:15vh; object-fit:contain; object-position:center; }
+#launch.hascv .bar { order:3; width:8.5vw !important; height:8.5vw !important; border-radius:50%; background:none !important; border:0 !important; overflow:visible !important; box-shadow:none !important; backdrop-filter:none; }
+#launch .bar i { display:none !important; }
+#launch .bar::before { content:''; position:absolute; inset:0; border-radius:50%; background:conic-gradient(var(--lA) calc(var(--p, 0) * 360deg), rgba(255,255,255,.14) 0); -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - .38vw), #000 calc(100% - .38vw)); mask:radial-gradient(farthest-side, transparent calc(100% - .38vw), #000 calc(100% - .38vw)); filter:drop-shadow(0 0 .8vw rgba(var(--lG), .6)); }
+#launch .bar::after { content:counter(pn) '%'; counter-reset:pn var(--pn); position:absolute; inset:0; display:grid; place-items:center; font-size:1.9vw; font-weight:700; color:#fff; letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+#launch.ready .bar::before { background:conic-gradient(#fff 360deg, #fff 0); filter:drop-shadow(0 0 1vw rgba(255,255,255,.6)); }
+
+/* v966: buttons: fixed colours in every state, icons truly centred */
+.gv-sheet .gxbtns { display:flex !important; align-items:center !important; justify-content:flex-start !important; gap:calc(1 * var(--w)) !important; }
+.gv-sheet .gxbtns .gxplayb, .gv-sheet .gxbtns .gxplayb:hover, .gv-sheet .gxbtns .gxplayb:focus, .gv-sheet .gxbtns .gxplayb:active, .gv-sheet .gxbtns .gxplayb.sel { display:inline-flex !important; flex-direction:row !important; align-items:center !important; justify-content:flex-start !important; background:#fff !important; color:#0a0b0f !important; width:auto !important; min-width:0 !important; text-shadow:none !important; }
+.gv-sheet .gxbtns .gxplayb.gxinst, .gv-sheet .gxbtns .gxplayb.gxinst:focus { background:linear-gradient(90deg, var(--gA) var(--p, 0%), rgba(255,255,255,.2) var(--p, 0%)) !important; color:#fff !important; }
+.gv-sheet .gxbtns .gxplayb span, .gv-sheet .gxbtns .gxplayb:focus span { color:inherit !important; opacity:1 !important; visibility:visible !important; }
+.gv-sheet .gxbtns .gxplayb i svg { width:50% !important; height:50% !important; margin:0 !important; }
+.gv-sheet .gxbtns .gv-b, .gv-sheet .gxbtns .gv-b:hover, .gv-sheet .gxbtns .gv-b:focus, .gv-sheet .gxbtns .gv-b.sel { display:flex !important; align-items:center !important; justify-content:center !important; flex:none !important; width:calc(3.7 * var(--w)) !important; height:calc(3.7 * var(--w)) !important; min-width:0 !important; padding:0 !important; margin:0 !important; border-radius:50% !important; color:#fff !important; }
+.gv-sheet .gxbtns .gv-b svg { display:block !important; width:calc(1.7 * var(--w)) !important; height:calc(1.7 * var(--w)) !important; margin:0 !important; flex:none; }
+.gv-sheet .gxbtns .gv-b > * { margin:0 !important; }
+
+/* v967: the cover is the same square Xbox tile the dashboard uses */
+#launch.hascv .lcv { display:block !important; order:0; position:relative !important; z-index:2; width:13vw !important; height:13vw !important; aspect-ratio:1/1; margin:0 0 4vh !important; border-radius:1.2vw !important; background-size:cover !important; background-position:center !important; transform:none !important; animation:none !important; box-shadow:0 2rem 6rem rgba(0,0,0,.65), 0 0 0 1.5px rgba(255,255,255,.26) !important; grid-column:auto !important; grid-row:auto !important; }
+#launch.hascv .lcv[hidden] { display:none !important; }
+#launch.hascv .lt { margin:0 0 5vh !important; font-size:3.6vw !important; }
+#launch.hascv .bar { width:6.5vw !important; height:6.5vw !important; }
+#launch .bar::after { font-size:1.45vw; }
+
+/* v974: a cover that is not square is shown WHOLE inside the square, never cut off */
+.gv-cover .gxart:not([data-sq]):not(.noart) { background-size:contain; background-repeat:no-repeat; background-position:center; background-color:#0c0e12; }
+#launch.hascv .lcv.fit { background-size:contain !important; background-repeat:no-repeat !important; background-color:#0c0e12 !important; }

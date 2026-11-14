@@ -1,0 +1,10 @@
+Optional one-time setup and undo files. Double-click the one you need.
+
+autostart-on / autostart-off ........ start the console when Windows signs in
+console-shell-on / console-shell-off  make the console your Windows shell (and back)
+console-boot-black / -off ........... black instead of grey while the console is loading at power-on
+gamebar-quiet-on / -off / -fix ...... stop the Game Bar "get an app" boxes
+wake-on / wake-off .................. turning the controller on starts the console
+padoff-setup / -remove / -test ...... closing the console switches the controller off
+install-widevine / sign-widevine / restore-electron ... music inside the console (Spotify)
+install-sound-engine ................ Spotify sound engine

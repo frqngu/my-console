@@ -1,0 +1,135 @@
+/* v939 aesthetic pass: same Xbox layout, but frosted glass over the wallpaper, softer type, and glowing focus. Loaded last so it wins. */
+:root {
+  --tnt: rgb(calc(10 + (var(--skr,10) - 10) * var(--skk,0)) calc(16 + (var(--skg,16) - 16) * var(--skk,0)) calc(30 + (var(--skb,30) - 30) * var(--skk,0)));
+  --glass: linear-gradient(150deg, rgba(255,255,255,.13), rgba(255,255,255,.045));
+  --glass-hi: linear-gradient(150deg, rgba(255,255,255,.26), rgba(255,255,255,.09));
+  --edge: rgba(255,255,255,.13);
+  --soft: 0 .9rem 2.4rem rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.1);
+}
+body { font-feature-settings:"ss01","cv11"; -webkit-font-smoothing:antialiased; }
+@keyframes aesIn { from { opacity:0; transform:translateY(.8rem); } to { opacity:1; transform:none; } }
+@keyframes aesSheen { from { background-position:-120% 0; } to { background-position:220% 0; } }
+
+/* ---------- a wallpaper behind every page, under a soft tinted veil ---------- */
+body.wp #hero::before, body.wp:not(.lib) #hero::after {
+  content:''; display:block !important; position:absolute; inset:0; pointer-events:none;
+  background:radial-gradient(120% 90% at 0% 0%, rgb(from var(--tnt) r g b / .55) 0%, transparent 60%), linear-gradient(180deg, rgba(4,8,18,.38), rgba(4,8,18,.66));
+}
+
+/* ---------- Settings ---------- */
+body.wp .st { background:linear-gradient(90deg, rgb(from var(--tnt) r g b / .9) 0%, rgb(from var(--tnt) r g b / .52) 34%, rgba(3,6,14,.42) 100%) !important; }
+body.wp .st-s { background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)), rgb(from var(--tnt) r g b / .55) !important; border-right:1px solid var(--edge) !important; box-shadow:1.2rem 0 3.4rem rgba(0,0,0,.35); padding-left:calc(var(--w) * 1.1); padding-right:calc(var(--w) * 1.1); }
+.st-top { padding:calc(var(--w) * .9) calc(var(--w) * 1.1); border-radius:calc(var(--w) * 1.4); background:var(--glass); border:1px solid var(--edge); box-shadow:var(--soft); margin-left:0 !important; margin-bottom:calc(var(--w) * 2) !important; }
+.st-top b { font-weight:600; letter-spacing:.02em; }
+.st-c { position:relative; margin:calc(var(--w) * .18) 0; padding:calc(var(--w) * .85) calc(var(--w) * 1.3) !important; border-radius:calc(var(--w) * 1.2) !important; font-weight:500; letter-spacing:.01em; color:rgba(255,255,255,.78); transition:transform .35s var(--spring), background .25s, color .25s, box-shadow .3s; }
+.st-c::before { content:''; position:absolute; left:calc(var(--w) * .38); top:50%; width:calc(var(--w) * .2); height:0; border-radius:99px; background:var(--accent); box-shadow:0 0 .9rem var(--accent); transform:translateY(-50%); transition:height .3s var(--spring); }
+body .st-c.cur { background:linear-gradient(100deg, color-mix(in srgb, var(--accent) 34%, transparent), color-mix(in srgb, var(--accent) 8%, transparent)) !important; color:#fff; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.st-c.cur::before { height:58%; }
+body .st-c:focus { background:linear-gradient(100deg, color-mix(in srgb, var(--accent) 66%, #fff 4%), color-mix(in srgb, var(--accent) 26%, transparent)) !important; color:#fff; transform:translateX(calc(var(--w) * .4)); box-shadow:0 .7rem 2rem rgba(0,0,0,.35), 0 0 2.2rem color-mix(in srgb, var(--accent) 45%, transparent), inset 0 0 0 1.5px rgba(255,255,255,.7) !important; }
+.st-c:focus::before { height:70%; background:#fff; box-shadow:0 0 1rem #fff; }
+.st-r { padding-top:calc(var(--w) * 3.6); }
+.st-h { position:relative; font-weight:300 !important; font-size:calc(var(--w) * 2.5) !important; letter-spacing:.015em; margin-bottom:calc(var(--w) * 2.6) !important; display:flex; align-items:center; gap:calc(var(--w) * .9); text-shadow:0 .2rem 1.4rem rgba(0,0,0,.4); }
+.st-h::before { content:''; position:absolute; left:0; bottom:calc(var(--w) * -.85); width:calc(var(--w) * 3.4); height:calc(var(--w) * .2); border-radius:99px; background:linear-gradient(90deg, var(--accent), transparent); }
+.st-g { gap:calc(var(--w) * 1) !important; }
+body .st-t { position:relative; overflow:hidden; border-radius:calc(var(--w) * 1.25) !important; background:var(--glass) !important; border:1px solid var(--edge); box-shadow:var(--soft); padding-left:calc(var(--w) * 1.4) !important; }
+body .st-t::after { content:''; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(105deg, transparent 35%, rgba(255,255,255,.16) 50%, transparent 65%) 0 0/250% 100% no-repeat; background-position:-120% 0; pointer-events:none; opacity:0; }
+body .st-t:focus { background:var(--glass-hi) !important; border-color:color-mix(in srgb, var(--accent) 70%, #fff); transform:scale(1.03); box-shadow:0 1rem 2.8rem rgba(0,0,0,.4), 0 0 2.4rem color-mix(in srgb, var(--accent) 38%, transparent), inset 0 0 0 1.5px rgba(255,255,255,.55) !important; }
+body .st-t:focus::after { opacity:1; animation:aesSheen 1.1s .1s ease-out 1 both; }
+.st-t .ico { padding:calc(var(--w) * .5); width:calc(var(--w) * 2.5) !important; height:calc(var(--w) * 2.5) !important; border-radius:calc(var(--w) * .9); background:linear-gradient(150deg, color-mix(in srgb, var(--accent) 42%, transparent), color-mix(in srgb, var(--accent) 10%, transparent)); box-sizing:border-box; stroke-width:1.6; }
+.st-l { font-weight:600; letter-spacing:.01em; }
+.st-l small { font-weight:400; opacity:.66; letter-spacing:.02em; }
+.st-t .track { background:rgba(255,255,255,.14) !important; border-radius:99px; }
+.st-t .fill { background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, #fff), var(--accent)) !important; border-radius:99px; box-shadow:0 0 .8rem color-mix(in srgb, var(--accent) 60%, transparent); }
+
+/* ---------- every other page: glass rows, cards and tiles ---------- */
+body.wp #screen h1 { font-weight:300; letter-spacing:.015em; text-shadow:0 .2rem 1.6rem rgba(0,0,0,.45); }
+body.wp #screen .apsub { opacity:.72; }
+body.wp #screen .pcard { width:fit-content; min-width:calc(var(--w) * 30); padding:calc(var(--w) * 1.2) calc(var(--w) * 1.6); border-radius:calc(var(--w) * 1.6); background:var(--glass); border:1px solid var(--edge); box-shadow:var(--soft); }
+body.wp #screen .list .item { border-radius:calc(var(--w) * 1.2) !important; background:var(--glass) !important; border:1px solid var(--edge) !important; box-shadow:var(--soft); font-weight:500; transition:transform .3s var(--spring), background .25s, box-shadow .3s; }
+body.wp #screen .list .item:focus { background:var(--glass-hi) !important; border-color:color-mix(in srgb, var(--accent) 70%, #fff) !important; transform:scale(1.025); box-shadow:0 1rem 2.6rem rgba(0,0,0,.4), 0 0 2.2rem color-mix(in srgb, var(--accent) 36%, transparent), inset 0 0 0 1.5px rgba(255,255,255,.55) !important; outline:none; }
+body.wp #screen .atile, body.wp #screen .agrid > button, body.wp #screen .agrid > a { border-radius:calc(var(--w) * 1.3) !important; background:var(--glass); border:1px solid var(--edge); box-shadow:var(--soft); }
+body.wp #screen .agrid > button:focus, body.wp #screen .agrid > a:focus, body.wp #screen .atile:focus { background:var(--glass-hi); border-color:color-mix(in srgb, var(--accent) 70%, #fff); box-shadow:0 1rem 2.6rem rgba(0,0,0,.4), 0 0 2.4rem color-mix(in srgb, var(--accent) 38%, transparent); transform:scale(1.04); outline:none; }
+body.wp .xt, body.wp .tcard, body.wp .ncard, body.wp .scard { border-radius:calc(var(--w) * 1.2); }
+
+/* ---------- the footer button hints ---------- */
+footer#hints { gap:calc(var(--w) * .7); }
+footer#hints > * { padding:calc(var(--w) * .28) calc(var(--w) * .9) calc(var(--w) * .28) calc(var(--w) * .3); border-radius:99px; background:rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.1); }
+#clock { font-weight:300; letter-spacing:.08em; text-shadow:0 .1rem 1rem rgba(0,0,0,.5); }
+
+/* ---------- home: calm the top bar and tiles a little ---------- */
+.topbar .ti { border-radius:calc(var(--w) * 1.3); border:1px solid var(--edge); box-shadow:var(--soft); }
+.topbar .prof { border-radius:calc(var(--w) * 1.4); border:1px solid var(--edge); box-shadow:var(--soft); }
+
+/* v943: one wallpaper for the whole opening. The dashboard's wallpaper (#hero .hmid) stays on screen through the startup video, the sign-in page and the dashboard, so nothing is ever swapped or hidden: pages only fade in over it. */
+#screen, header, footer#hints, #credit, #stars, #skinfx { transition:opacity .7s var(--ease); }
+body.intro-on #hero { opacity:1 !important; transition:none !important; }
+body.intro-on #hero .hl, body.intro-on #hero .hv { display:none !important; }
+body.intro-on #hero .hmid { opacity:1 !important; }
+body.intro-on :is(#screen, header, footer#hints, #credit, #stars, #skinfx) { opacity:.01 !important; pointer-events:none; }   /* v952: .01 not 0: the browser paints and uploads the whole dashboard to the graphics card WHILE you sign in (invisible), instead of freezing for a quarter of a second when it first appears */
+body.intro-on #sign .sg-bg { display:none !important; }
+#intro.press-on, #intro.press-on.signing, #intro.press-on.leave { background:transparent !important; -webkit-backdrop-filter:none !important; backdrop-filter:none !important; }
+#intro.press-on { transition:opacity .9s var(--ease), transform .9s var(--ease), background .9s !important; }
+#signing { background:radial-gradient(60% 55% at 50% 50%, rgba(0,0,0,.34), rgba(0,0,0,.06) 70%, transparent) !important; }
+#intro.signing .press > :not(.sg-bg):not(.sg-title):not(.sg-wrap):not(.sg-sub):not(.sg-clk) { opacity:0 !important; transition:opacity .4s ease !important; }
+#intro.press-on.leave { opacity:0; transform:none; }
+#hero .hg, #hero .pc { transition:opacity .8s .35s var(--ease); }
+body.intro-on #hero .hg, body.intro-on #hero .pc { opacity:.01 !important; }
+
+/* v946: the startup video dissolves straight into the sign-in page (tiles arrive with the dissolve, not after it), and everything eases a little softer */
+#intro.press-on .boot { transition:opacity 1.2s cubic-bezier(.4,0,.2,1) !important; }
+#intro .press { transition:opacity .8s cubic-bezier(.3,0,.2,1) 0s !important; }
+#intro.press-on .press .sg-title, #intro.press-on .press .sg-wrap, #intro.press-on .press .sg-sub { animation:aesRise 1s cubic-bezier(.16,.84,.24,1) both; }
+@keyframes aesRise { from { opacity:0; transform:translateY(1.1rem) scale(.985); } to { opacity:1; transform:none; } }
+.sg-u, .sg-av { transition:transform .55s cubic-bezier(.16,.84,.24,1), opacity .4s ease, box-shadow .4s ease, background .4s ease; }
+.xn, .xnapp, .xt, .item, .st-t, .st-c, .tile, .w2, .lt, .topbar .ti { transition-timing-function:cubic-bezier(.16,.84,.24,1); }
+html { scroll-behavior:smooth; }
+
+/* v947: the dissolve curves. The old curve did 90% of every fade in the first fifth of a second, so the dashboard seemed to "pop" in; these ease in and out over a full second. */
+:root { --dissolve:cubic-bezier(.45,.05,.25,1); }
+#screen, header, footer#hints, #credit, #stars, #skinfx { transition:opacity 1.1s var(--dissolve) !important; will-change:opacity; }
+#hero .hg, #hero .pc { transition:opacity .9s .45s var(--dissolve) !important; }
+#signing { transition:opacity .6s var(--dissolve) !important; }
+#signing.out { transition:opacity 1.3s var(--dissolve) !important; }
+#intro.signing .press > :not(.sg-bg):not(.sg-title):not(.sg-wrap):not(.sg-sub):not(.sg-clk) { transition:opacity .55s var(--dissolve) !important; }
+#intro.press-on.leave { transition:opacity 1s var(--dissolve) !important; }
+#hero .hmid, #hero .hmid .thimg, #hero .hmid canvas { transition-timing-function:var(--dissolve); }
+
+/* v949: no dip. The dark veils over the wallpaper (#hero::before/::after) used to snap on the moment the opening ended, which dimmed the whole screen for a beat. They are now held at 0 during the opening and fade in slowly together with the dashboard. */
+#hero::before, #hero::after { transition:opacity 1.4s var(--dissolve) !important; }
+body.intro-on #hero::before, body.intro-on #hero::after { opacity:0 !important; transition:none !important; }
+
+/* v949: the big game title and poster rise in with a real animation (style.css blocks transitions on them with !important, so a transition could only pop) */
+@keyframes aesFade { from { opacity:0; } to { opacity:1; } }
+
+
+/* v951: pseudo-element opacity transitions do not run here (measured: the wallpaper veil jumped to full strength in one frame), so the veil fades in with a real animation instead */
+body.intro-rise #hero::before, body.intro-rise #hero::after { animation:aesFade 1.5s var(--dissolve) both !important; }
+
+/* v951: THE FLASH. The sign-in page's own dark backdrop (.sg-bg) was only hidden while the opening ran; the moment you picked a profile it switched back on at full strength and faded away over a second, which was the dark flash. The wallpaper is the backdrop now, so it is hidden always. */
+#sign .sg-bg, #intro .sg-bg { display:none !important; }
+
+/* v952: every fade is a real animation or a transition on its own graphics layer, so a busy moment can no longer make it jump */
+@keyframes aesOut { from { opacity:1; } to { opacity:0; } }
+@keyframes aesFade2 { from { opacity:0; } to { opacity:1; } }
+#intro.signing .press .sg-title, #intro.signing .press .sg-wrap, #intro.signing .press .sg-sub, #intro.signing .press .sg-clk { animation:aesOut .45s var(--dissolve) both !important; will-change:opacity; }
+#hero .hg.on, #hero .pc.on { animation:aesFade .16s 0s ease-out both; }
+/* v971: same animation NAME as the normal fade (only timing differs) so removing intro-rise 2.8 s later no longer restarts it: that restart was the title blinking after sign-in */
+body.intro-rise #hero .hg.on, body.intro-rise #hero .pc.on { animation:aesFade .7s .6s var(--dissolve) both !important; }
+#intro.leave .press .sg-title, #intro.leave .press .sg-wrap, #intro.leave .press .sg-sub, #intro.leave .press .sg-clk { animation:none !important; opacity:0 !important; }
+
+/* v958: last resort if a wallpaper still comes up black: a calm deep-blue gradient instead of black */
+html.wpfallback #hero { background:radial-gradient(120% 90% at 50% 0%, #1a3f86 0%, #0c1d45 55%, #050c22 100%) !important; }
+html.wpfallback #hero .hmid { opacity:0 !important; }
+
+/* v959: the outgoing title / poster dissolve instead of vanishing */
+#hero .hgx { animation:aesOut .15s ease-out both !important; pointer-events:none; }
+
+/* v961: leaving the game row (down to the shelf) fades the title/poster out quickly instead of popping */
+body.onshelf #hero .hg.on, body.onshelf #hero .pc.on { animation:aesOut .22s ease-out both !important; }
+
+/* v970: a paused wallpaper must never freeze a title or cover half-way through its fade (it stayed invisible after a game closed) */
+body.bgpause #hero .hg, body.bgpause #hero .pc, body.bgpause #hero .hgx { animation-play-state:running !important; }
+
+/* v972: signing out fades the old dashboard away fast (it used to linger faintly behind the profile page) */
+body.intro-on :is(#screen, header, footer#hints, #credit, #stars, #skinfx) { transition:opacity .2s ease !important; }
+body.intro-on #hero .hgx { display:none !important; }

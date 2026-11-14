@@ -1,0 +1,53 @@
+{
+  "name": "my-console",
+  "version": "1.0.60",
+  "description": "My own Windows gaming console shell",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "34.5.8",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.frankie.myconsole",
+    "productName": "My Console",
+    "asar": false,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!node_modules/**",
+      "!electron-dist/**",
+      "!*.bat",
+      "!tools/*.bat",
+      "!README.txt"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "artifactName": "My-Console-Setup.${ext}"
+    },
+    "electronVersion": "34.5.8",
+    "electronDist": "electron-dist",
+    "afterPack": "build/after-pack.js"
+  }
+}
