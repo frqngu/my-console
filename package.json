@@ -36,7 +36,8 @@
           ]
         }
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": true,
@@ -48,6 +49,7 @@
     },
     "electronVersion": "34.5.8",
     "electronDist": "electron-dist",
-    "afterPack": "build/after-pack.js"
+    "afterPack": "build/after-pack.js",
+    "icon": "build/icon.png"
   }
 }

@@ -4745,7 +4745,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1062';
+const VERSION = 'v1063';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 
