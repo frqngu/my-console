@@ -4745,7 +4745,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1063';
+const VERSION = 'v1065';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 
@@ -4845,6 +4845,40 @@ ipcMain.handle('net:speed', async () => {
     for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.length; }
     clearTimeout(to); const s = (Date.now() - t0) / 1000; return { ok: true, down: Math.round(n * 8 / 1e6 / Math.max(.2, s)), ping };
   } catch { return { ok: false }; }
+});
+
+// ---- v1065: connection type (LAN / Wi-Fi) and a three-step speed test ----
+ipcMain.handle('net:status', async () => {
+  try {
+    const w = await runNetsh(['wlan', 'show', 'interfaces']); const wc = /^\s*State\s*:\s*connected/mi.test(w.out);
+    const ssid = (/^\s*SSID\s*:\s*(.+)$/m.exec(w.out) || [])[1]; const rate = (/Receive rate \(Mbps\)\s*:\s*([\d.]+)/i.exec(w.out) || [])[1];
+    const ifs = require('os').networkInterfaces(); let lan = null;
+    for (const [name, arr] of Object.entries(ifs)) { if (/vEthernet|VirtualBox|VMware|Bluetooth|Loopback|Hyper-V|WSL|Tailscale|VPN|TAP|Wi-?Fi|Wireless|WLAN/i.test(name)) continue; if ((arr || []).some((a) => a.family === 'IPv4' && !a.internal && !/^169\.254\./.test(a.address))) { lan = name; break; } }
+    let speed = '';
+    if (lan) { const r = await new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-Command', "(Get-NetAdapter -Name '" + lan.replace(/'/g, '') + "' -ErrorAction SilentlyContinue).LinkSpeed"], { windowsHide: true, timeout: 6000, encoding: 'utf8' }, (e, so) => res(String(so || '').trim())); } catch { res(''); } }); speed = r; }
+    const kind = lan ? 'lan' : (wc ? 'wifi' : 'none');
+    return { ok: true, kind, name: lan || '', ssid: ssid ? ssid.trim() : '', speed: kind === 'lan' ? speed : (rate ? rate + ' Mbps' : ''), both: !!(lan && wc) };
+  } catch { return { ok: false, kind: 'none' }; }
+});
+ipcMain.handle('net:test', async (_e, phase) => {
+  const c = new AbortController(), to = setTimeout(() => c.abort(), 16000);
+  try {
+    if (phase === 'ping') {
+      const ts = []; for (let i = 0; i < 6; i++) { const t = process.hrtime.bigint(); const r = await net.fetch('https://speed.cloudflare.com/__down?bytes=0', { signal: c.signal, cache: 'no-store' }); await r.arrayBuffer(); ts.push(Number(process.hrtime.bigint() - t) / 1e6); }
+      ts.shift(); ts.sort((a, b) => a - b); return { ok: true, ping: Math.round(ts[0]), jitter: Math.round(ts[ts.length - 1] - ts[0]) };
+    }
+    if (phase === 'down') {
+      const t0 = Date.now(); const r = await net.fetch('https://speed.cloudflare.com/__down?bytes=40000000', { signal: c.signal, cache: 'no-store' }); const rd = r.body.getReader(); let n = 0;
+      for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.length; if (Date.now() - t0 > 9000) { try { c.abort(); } catch {} break; } }
+      const s = (Date.now() - t0) / 1000; return { ok: n > 0, down: Math.round(n * 80 / 1e7 / Math.max(.2, s)) / 10 };
+    }
+    if (phase === 'up') {
+      const body = Buffer.alloc(12000000, 97); const t0 = Date.now();
+      const r = await net.fetch('https://speed.cloudflare.com/__up', { method: 'POST', body, signal: c.signal, headers: { 'Content-Type': 'application/octet-stream' } }); await r.arrayBuffer();
+      const s = (Date.now() - t0) / 1000; return { ok: true, up: Math.round(body.length * 80 / 1e7 / Math.max(.2, s)) / 10 };
+    }
+    return { ok: false };
+  } catch { return { ok: false }; } finally { clearTimeout(to); }
 });
 
 // ================= v828: Console Search (results from DuckDuckGo + Wikipedia, shown in the console's own pages) =================

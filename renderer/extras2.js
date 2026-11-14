@@ -22,7 +22,7 @@
     refresh: ico('<path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v5h-5"/>'),
     list: ico('<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>'),
   });
-  const TCATS = [['apps', 'Switch apps'], ['getapps', 'Get apps'], ['mc', 'Minecraft mods'], ['storage', 'Storage'], ['wifi', 'Network'], ['dev', 'Devices & screens'], ['win', 'Display & sound'], ['upd', 'Updates'], ['care', 'Backup & restore'], ['media', 'Pictures & videos']];
+  const TCATS = [['apps', 'Switch apps'], ['getapps', 'Get apps'], ['storage', 'Storage'], ['wifi', 'Network'], ['dev', 'Devices & screens'], ['win', 'Display & sound'], ['upd', 'Updates'], ['care', 'Backup & restore'], ['media', 'Pictures & videos']];
   const TGROUP = { apps: 'Apps', wifi: 'Connect', upd: 'System', media: 'Media' };
   let tcat = 'apps';
   const tile = (icon, label, attrs, small) => `<button class="st-t" data-nav ${attrs}>${ICON[icon] || ''}<span class="st-l">${E(label)}${small ? `<small>${E(small)}</small>` : ''}</span></button>`;
@@ -741,16 +741,28 @@
     else popMenu(el, 'Install ' + x.name + '?', [['ga:no', 'Cancel'], ['ga:in', 'Install']], { xt: { kind: 'ga', x } });
     return true;
   };
-  const WF = { d: null, busy: false };
-  const wfLoad = () => { if (WF.busy) return; WF.busy = true; api.wifiList().then((r) => { WF.d = r; WF.busy = false; if (screen === 'tools' && tcat === 'wifi') paintPane(true); }).catch(() => { WF.busy = false; }); };
+  const WF = { d: null, busy: false, st: null, T: null };
+  const wfLoad = () => { if (WF.busy) return; WF.busy = true; api.netStatus().then((s) => { WF.st = s; }).catch(() => {}); api.wifiList().then((r) => { WF.d = r; WF.busy = false; if (screen === 'tools' && tcat === 'wifi') paintPane(true); }).catch(() => { WF.busy = false; }); };
+  const wfRd = () => { if (screen === 'tools' && tcat === 'wifi') paintPane(true); };
+  const wfTest = async () => {
+    const T = WF.T = { phase: 'ping' }; wfRd();
+    const r1 = await api.netTest('ping'); if (r1 && r1.ok) { T.ping = r1.ping; T.jitter = r1.jitter; } T.phase = 'down'; wfRd();
+    const r2 = await api.netTest('down'); if (r2 && r2.ok) T.down = r2.down; T.phase = 'up'; wfRd();
+    const r3 = await api.netTest('up'); if (r3 && r3.ok) T.up = r3.up; T.phase = 'done'; T.fail = !(T.down || T.up || T.ping); wfRd();
+  };
   const wifiPane = () => {
-    if (!WF.d && !WF.busy) wfLoad(); const d = WF.d;
-    return `<h2 class="st-h">Network</h2><div class="tl">${tile('net', d && d.current ? 'Connected to ' + d.current : (WF.busy ? 'Looking for networks...' : 'Not connected'), 'data-nav', '')}${tile('view', 'Scan again', 'data-tact="wf:again"', '')}${tile('net', 'Test network speed', 'data-tact="wf:speed"', WF.speed || 'Download speed and response time')}${d && d.nets ? d.nets.map((n, i) => tile('net', n.ssid, 'data-tact="wf:' + i + '"', (n.sig ? n.sig + '% signal · ' : '') + (n.open ? 'Open' : 'Needs password'))).join('') : ''}${d && d.ok === false && !(d.nets || []).length ? tile('info', 'No Wi-Fi adapter found', 'data-nav', 'A wired connection does not need this page') : ''}</div>`;
+    if (!WF.d && !WF.busy) wfLoad(); const d = WF.d, s = WF.st, T = WF.T;
+    const conn = s && s.kind === 'lan' ? tile('net', 'Connected by LAN cable', 'data-nav', (s.name || 'Ethernet') + (s.speed ? ' \u00b7 ' + s.speed : '') + (s.both ? ' \u00b7 Wi-Fi is also on' : ''))
+      : s && s.kind === 'wifi' ? tile('net', 'Connected by Wi-Fi' + (s.ssid ? ': ' + s.ssid : ''), 'data-nav', s.speed ? 'Link speed ' + s.speed : '')
+      : tile('net', d && d.current ? 'Connected to ' + d.current : (WF.busy ? 'Looking for networks...' : 'Not connected'), 'data-nav', '');
+    const ph = { ping: 'Testing response time...', down: 'Testing download...', up: 'Testing upload...' };
+    const sub = !T ? 'Download, upload and ping' : T.phase !== 'done' ? ph[T.phase] : T.fail ? 'The test could not finish.' : (T.down != null ? T.down + ' Mbps down' : 'Download failed') + ' \u00b7 ' + (T.up != null ? T.up + ' Mbps up' : 'Upload failed') + ' \u00b7 ' + (T.ping != null ? T.ping + ' ms ping' : 'Ping failed');
+    return `<h2 class="st-h">Network</h2><div class="tl">${conn}${tile('net', T && T.phase === 'done' ? 'Test again' : 'Test internet speed', 'data-tact="wf:speed"', sub)}${T && T.phase === 'done' && !T.fail ? tile('info', 'Jitter ' + (T.jitter != null ? T.jitter : '?') + ' ms', 'data-nav', 'Lower is steadier for online games') : ''}${tile('view', 'Scan Wi-Fi again', 'data-tact="wf:again"', '')}${d && d.nets ? d.nets.map((n, i) => tile('net', n.ssid, 'data-tact="wf:' + i + '"', (n.sig ? n.sig + '% signal \u00b7 ' : '') + (n.open ? 'Open' : 'Needs password'))).join('') : ''}${d && d.ok === false && !(d.nets || []).length ? tile('info', 'No Wi-Fi adapter found', 'data-nav', 'A wired connection does not need this page') : ''}</div>`;
   };
   const wfAct = (el) => {
     const t = el.dataset.tact; if (!t || !t.startsWith('wf:')) return false; const k = t.slice(3);
-    if (k === 'again') { WF.d = null; wfLoad(); paintPane(true); return true; }
-    if (k === 'speed') { WF.speed = 'Testing...'; paintPane(true); api.netSpeed().then((r) => { WF.speed = r && r.ok ? r.down + ' Mbps download \u00b7 ' + (r.ping || '?') + ' ms response' : 'The test could not finish.'; if (screen === 'tools' && tcat === 'wifi') paintPane(true); }); return true; }
+    if (k === 'again') { WF.d = null; WF.st = null; wfLoad(); paintPane(true); return true; }
+    if (k === 'speed') { if (!WF.T || WF.T.phase === 'done') wfTest(); return true; }
     const n = ((WF.d && WF.d.nets) || [])[Number(k)]; if (!n) return true;
     const go = (pw) => { note('Connecting to ' + n.ssid + '...'); api.wifiConnect(n.ssid, pw).then((r) => { note(r && r.ok ? 'Asked Windows to join ' + n.ssid + '.' : (r && r.error) || 'Could not connect.'); setTimeout(() => { WF.d = null; wfLoad(); }, 4500); }); };
     if (n.open) go(''); else openOsk('Password for ' + n.ssid, '', { done: 'Connect' }).then((pw) => { if (pw !== null && pw !== undefined) go(pw); });
@@ -822,7 +834,7 @@
       + sec('Quick', tile('search', 'Search', 'data-tcatgo="search"', 'Games, apps, settings') + mpt + tile('view', 'Next wallpaper', 'data-tact="wp"', 'Changes the whole look') + tile('sun', 'Weather', 'data-tact="wx"') + tile('vol', 'Volume & Wi-Fi', 'data-tact="quick"'))
       + sec('Capture', tile('cam', 'Take screenshot', 'data-tact="shot"') + tile('film', REC ? 'Stop recording' : 'Record screen', 'data-tact="rec"', 'Saved in Captures') + tile('view', 'Captures', 'data-tact="caps"', 'Your screenshots') + tile('image', 'Pictures & videos', 'data-tcatgo="media"', 'Photos, videos, music'))
       + sec('Apps & storage', tile('monitor', 'Switch apps', 'data-tcatgo="apps"', 'Switch or close what is open') + tile('bag', 'Get apps', 'data-tcatgo="getapps"', 'Install and remove programs') + tile('drive', 'Storage', 'data-tcatgo="storage"', 'Drives and game sizes'))
-      + sec('Connect', tile('net', 'Network', 'data-tcatgo="wifi"', 'Wi-Fi and speed test') + tile('bt', 'Devices & screens', 'data-tcatgo="dev"', 'Bluetooth, screen modes') + tile('gear', 'Display & sound', 'data-tcatgo="win"', 'Sound, display, power mode'))
+      + sec('Connect', tile('net', 'Network', 'data-tcatgo="wifi"', 'LAN, Wi-Fi and speed test') + tile('bt', 'Devices & screens', 'data-tcatgo="dev"', 'Bluetooth, screen modes') + tile('gear', 'Display & sound', 'data-tcatgo="win"', 'Sound, display, power mode'))
       + sec('System', tile('down', 'Updates', 'data-tcatgo="upd"', 'Windows and console') + tile('gear', 'Backup & restore', 'data-tcatgo="care"', 'Backup, restore, reset') + tile('power', 'Security & lock', 'data-tcatgo="security"', 'Passcode and lock screen') + tile('view', 'Ease of access', 'data-tcatgo="access"', 'Contrast, text size, read aloud') + tile('info', 'System info', 'data-tact="sys"') + tile('bell', 'Notifications', 'data-tact="notifs"'))
       + sec('Help', tile('info', 'Controls help', 'data-tcatgo="help"', 'Every button, explained'))
       + `</div>`;
