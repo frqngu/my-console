@@ -3032,6 +3032,10 @@ function poll(now) {
   const el = $('#pad');
   if (pad) {
     el.classList.add('on'); if (!cpad) { cpad = true; updateLock(); }
+    if (document.body.classList.contains('ambient')) {   // the clock page: the first controller input only wakes the console and goes back to the dashboard, it does not press anything
+      if (pad.buttons.some((b) => b.pressed) || Math.abs(pad.axes[0] || 0) > .5 || Math.abs(pad.axes[1] || 0) > .5) { pad.buttons.forEach((b, i) => { if (b.pressed) sup.add(i); }); window.dispatchEvent(new Event('ambwake')); }
+      requestAnimationFrame(poll); return;
+    }
     const idleTest = screen === 'binds' && bindTabK === 'test' && !testing;   // before A is pressed, the sticks do nothing here
     if (screen === 'binds' && bindTabK === 'test') {   // the Test tab
       if (testing) {
@@ -3330,7 +3334,7 @@ const RMI = { lib: '<path d="M5 4v16M10 4v16M15 5l4 15"/>', pad: '<rect x="3" y=
 function rmPages() {
   const ic = (k) => `<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${RMI[k]}</svg></div>`;
   const card = (k, t, s) => `<div class="it">${ic(k)}<b>${t}</b><span>${s}</span></div>`;
-  const step = (t, s) => `<div class="st"><div>${t}<small>${s}</small></div></div>`;
+  const step = (t, s) => `<div class="rst"><div>${t}<small>${s}</small></div></div>`;
   const key = (g, t) => `<div class="k"><i>${g}</i>${t}</div>`;
   const b = settings.binds || {};
   return [

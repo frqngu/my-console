@@ -462,7 +462,7 @@ function beginLaunch() {
         L.n = (L.n || 0) + 1; try { if (win) win.webContents.send('launch:dbg', L.last = 'looking for ' + running.title + ' · ' + (pr.ok ? pr.list.length + ' windows' : 'could not read windows') + ' · programs named like it: ' + ((pr.procs || []).map((x) => x.name + '#' + x.pid + (x.hwnd && x.hwnd !== '0' ? ' (has window)' : ' (no window)')).join(', ') || 'none') + (pr.list.length ? ': ' + pr.list.slice(0, 4).map((x) => (x.name || path.basename(x.exe)) + ' ' + x.w + 'x' + x.h + (x.inDir ? ' dir' : '') + (x.title ? ' title' : '')).join(', ') : '')); } catch {}
         if (L.n % 4 === 1) log('launch watch: folder=' + running.folder + ' windows=' + pr.list.map((x) => path.basename(x.exe) + ' ' + x.w + 'x' + x.h + (x.inDir ? ' dir' : '') + (x.title ? ' title' : '') + (x.isNew ? ' new' : '') + (x.fg ? ' fg' : '')).join('; '));
         if (hit) { L.hits = (L.hits || 0) + 1; if (L.hits >= 2 || hit.fg) { if (!hit.inDir && hit.exe) { running.folder = path.dirname(hit.exe); } log('launch: game found: ' + (hit.exe || hit.name) + ' pid ' + hit.pid); running.hwnd = hit.hwnd; try { gameToHome(hit.hwnd); } catch {} running.pid = hit.pid; running.pname = hit.name; return finishLaunch(L); } } else L.hits = 0;
-        if (!hit && !mine.length && !L.retried && Date.now() - L.t0 > 14000) { L.retried = true; const gg = loadLib().games.find((x) => x.id === running.id); if (gg && gg.uri && /^(com\.epicgames\.launcher|uplay):\/\//.test(gg.uri)) { log('launch: nothing opened yet, asking the launcher again'); shell.openExternal(gg.uri).catch(() => {}); } }   // a launcher that was still starting up can ignore the first request
+        if (!hit && !mine.length && !L.retried && Date.now() - L.t0 > 14000) { L.retried = true; const gg = loadLib().games.find((x) => x.id === running.id); if (gg && gg.uri && /^(com\.epicgames\.launcher|uplay):\/\//.test(gg.uri)) { log('launch: nothing opened yet, asking the launcher again'); shell.openExternal(String(gg.uri).replace(/&silent=true/, '')).catch(() => {}); } }   // a launcher that was still starting up can ignore the first request
         const sm = mine.find((x) => !ANTICHEAT.test(x.name + ' ' + x.exe) && x.w > 200); if (sm) { if (!L.anyAt) L.anyAt = Date.now(); if (Date.now() - L.anyAt > 25000) { running.hwnd = sm.hwnd; running.pid = sm.pid; running.pname = sm.name; return finishLaunch(L); } } else L.anyAt = 0;   // the game's small start-up window is waited out (it grows to full size by itself); only a game that stays small for 25 seconds is handed over as it is
       } else {
         const procs = running ? await procsIn(running.folder, true) : [];
@@ -3651,7 +3651,7 @@ async function gogFind(title) {   // GOG's public catalogue: no account or key
   try { const d = await fetch('https://api.gog.com/products/' + encodeURIComponent(p.id) + '?expand=description', { signal: AbortSignal.timeout(15000) }); if (d.ok) { const j = await d.json(); description = unHtml((j.description && (j.description.full || j.description.lead)) || '').slice(0, 3000); } } catch {}
   return { cover, description, genres: (p.genres || []).map((x) => String(x.name || x)).slice(0, 4), developers: (p.developers || []).map(String).slice(0, 3), publishers: (p.publishers || []).map(String).slice(0, 3), released: String(p.releaseDate || '').slice(0, 10) };
 }
-const coverMissFile = () => path.join(app.getPath('userData'), 'cover-miss.json');
+const coverMissFile = () => path.join(app.getPath('userData'), 'cover-miss2.json');
 let coverMiss = null;
 const loadMiss = () => { if (!coverMiss) { try { coverMiss = JSON.parse(fs.readFileSync(coverMissFile(), 'utf8')); } catch { coverMiss = {}; } } return coverMiss; };
 const saveMiss = () => { try { fs.writeFileSync(coverMissFile(), JSON.stringify(coverMiss || {})); } catch {} };
@@ -3683,11 +3683,17 @@ async function coverFetch(title, f) {
       }
     }
     if (!ok) { const d = await igdbFind(title).catch((e) => { log('igdb: ' + e.message); return null; }); if (d && d.cover) ok = await getJpg(d.cover, f); }
-    if (!ok) {
-      const r = await fetch('https://store.steampowered.com/api/storesearch/?l=english&cc=us&term=' + encodeURIComponent(title), { signal: AbortSignal.timeout(15000) });
-      const items = r.ok ? ((await r.json()).items || []) : [];
-      const want = normName(title), m = items.find((x) => x.type === 'app' && normName(x.name) === want);
-      if (m && /^\d+$/.test(String(m.id))) ok = (await getJpg('https://cdn.cloudflare.steamstatic.com/steam/apps/' + m.id + '/library_600x900_2x.jpg', f)) || (await getJpg('https://cdn.cloudflare.steamstatic.com/steam/apps/' + m.id + '/library_600x900.jpg', f));
+    if (!ok) {   // the Steam store's own poster for the same game (Ubisoft and EA games are mostly on Steam too): exact name first, then a close name
+      const want = normName(title), strip = (s) => normName(s).replace(/^tom clancys? /, '').replace(/\b(year \d+|season \d+|the )\b/g, ' ').replace(/\s+/g, ' ').trim();
+      const terms = [title, title.replace(/^tom clancy'?s\s+/i, ''), title.split(/\s+/).slice(0, 3).join(' ')].filter((x, i, a) => x && a.indexOf(x) === i);
+      for (const term of terms) {
+        if (ok) break;
+        const r = await fetch('https://store.steampowered.com/api/storesearch/?l=english&cc=us&term=' + encodeURIComponent(term), { signal: AbortSignal.timeout(15000) });
+        const items = (r.ok ? ((await r.json()).items || []) : []).filter((x) => x.type === 'app');
+        const near = (x) => { const a = strip(x.name), b = strip(title); return a === b || (a.length >= 6 && b.length >= 6 && (a.startsWith(b) || b.startsWith(a))) && !/\b(soundtrack|dlc|demo|beta|dedicated server|season pass|artbook)\b/i.test(x.name); };
+        const m2 = items.find((x) => normName(x.name) === want) || items.filter(near).sort((p, q) => p.name.length - q.name.length)[0];
+        if (m2 && /^\d+$/.test(String(m2.id))) ok = (await getJpg('https://cdn.cloudflare.steamstatic.com/steam/apps/' + m2.id + '/library_600x900_2x.jpg', f)) || (await getJpg('https://cdn.cloudflare.steamstatic.com/steam/apps/' + m2.id + '/library_600x900.jpg', f)) || (await getJpg('https://cdn.cloudflare.steamstatic.com/steam/apps/' + m2.id + '/portrait.png', f));
+      }
     }
     if (!ok) { const d = await gogFind(title).catch(() => null); if (d && d.cover) ok = await getJpg(d.cover, f); }
   } catch (e) { log('cover: ' + e.message); if (/rejected the key/.test(e.message)) throw e; return false; }
@@ -4745,7 +4751,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1065';
+const VERSION = 'v1067';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 

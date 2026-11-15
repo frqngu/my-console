@@ -161,6 +161,7 @@
   const sleepy = () => { try { return introOn || launching || guideOn || osk || menu || document.hidden || dash || document.body.classList.contains('viewing') || screen === 'spotify' || screen === 'ytube' || document.body.classList.contains('gdgame'); } catch { return true; } };
   for (const ev of ['keydown', 'mousemove', 'mousedown', 'wheel', 'touchstart']) addEventListener(ev, (e) => { if (on) { if (ev !== 'mousemove') e.stopPropagation(); wake(); } else idleAt = Date.now(); }, true);
   if (api.onPadNav) api.onPadNav(wake);
+  addEventListener('ambwake', wake);
   let pads = '';
   setInterval(() => {
     try { const g = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean).map((p) => p.buttons.map((b) => (b.pressed ? 1 : 0)).join('') + p.axes.map((a) => (Math.abs(a) > .4 ? 1 : 0)).join('')).join('|'); if (g !== pads && /1/.test(g)) wake(); pads = g; } catch {}

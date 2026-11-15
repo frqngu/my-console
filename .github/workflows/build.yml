@@ -1,6 +1,8 @@
 name: Build Windows installer
 on:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: windows-latest
@@ -31,3 +33,10 @@ jobs:
         with:
           name: My-Console-Setup
           path: dist/My-Console-Setup.exe
+      - name: Publish a download page (GitHub Release)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "console-build-${{ github.run_number }}"
+          gh release create $tag dist/My-Console-Setup.exe --title "My Console (build ${{ github.run_number }})" --notes "Download My-Console-Setup.exe, run it, and if Windows shows a blue box click More info, then Run anyway." --latest
