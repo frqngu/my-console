@@ -4751,7 +4751,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1067';
+const VERSION = 'v1068';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 
@@ -4867,21 +4867,37 @@ ipcMain.handle('net:status', async () => {
   } catch { return { ok: false, kind: 'none' }; }
 });
 ipcMain.handle('net:test', async (_e, phase) => {
-  const c = new AbortController(), to = setTimeout(() => c.abort(), 16000);
+  const c = new AbortController(), to = setTimeout(() => c.abort(), 20000);
   try {
     if (phase === 'ping') {
       const ts = []; for (let i = 0; i < 6; i++) { const t = process.hrtime.bigint(); const r = await net.fetch('https://speed.cloudflare.com/__down?bytes=0', { signal: c.signal, cache: 'no-store' }); await r.arrayBuffer(); ts.push(Number(process.hrtime.bigint() - t) / 1e6); }
       ts.shift(); ts.sort((a, b) => a - b); return { ok: true, ping: Math.round(ts[0]), jitter: Math.round(ts[ts.length - 1] - ts[0]) };
     }
-    if (phase === 'down') {
-      const t0 = Date.now(); const r = await net.fetch('https://speed.cloudflare.com/__down?bytes=40000000', { signal: c.signal, cache: 'no-store' }); const rd = r.body.getReader(); let n = 0;
-      for (;;) { const { done, value } = await rd.read(); if (done) break; n += value.length; if (Date.now() - t0 > 9000) { try { c.abort(); } catch {} break; } }
-      const s = (Date.now() - t0) / 1000; return { ok: n > 0, down: Math.round(n * 80 / 1e7 / Math.max(.2, s)) / 10 };
-    }
-    if (phase === 'up') {
-      const body = Buffer.alloc(12000000, 97); const t0 = Date.now();
-      const r = await net.fetch('https://speed.cloudflare.com/__up', { method: 'POST', body, signal: c.signal, headers: { 'Content-Type': 'application/octet-stream' } }); await r.arrayBuffer();
-      const s = (Date.now() - t0) / 1000; return { ok: true, up: Math.round(body.length * 80 / 1e7 / Math.max(.2, s)) / 10 };
+    if (phase === 'down' || phase === 'up') {
+      // several real connections at once (one connection alone can never fill a fast line), a short warm-up that is not counted, then a fixed window
+      const H = require('https'), N = 8, WARM = 1500, WIN = 7000, t0 = Date.now(); let bytes = 0, mark = 0, tm = 0, stop = false;
+      const chunk = Buffer.alloc(1 << 20, 97);
+      const worker = () => new Promise((res) => {
+        const ag = new H.Agent({ keepAlive: false });
+        const go = () => {
+          if (stop || Date.now() - t0 > WARM + WIN + 800) return res();
+          let req;
+          const fin = () => { try { req.destroy(); } catch {} res(); };
+          if (phase === 'down') {
+            req = H.get({ host: 'speed.cloudflare.com', path: '/__down?bytes=100000000&r=' + Math.random(), agent: ag, headers: { 'User-Agent': CHROME_UA() } }, (r) => { r.on('data', (d) => { if (Date.now() - t0 > WARM) { if (!mark) { mark = Date.now(); bytes = 0; } bytes += d.length; tm = Date.now(); } if (stop) fin(); }); r.on('end', go); r.on('error', fin); });
+          } else {
+            req = H.request({ host: 'speed.cloudflare.com', path: '/__up?r=' + Math.random(), method: 'POST', agent: ag, headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': 8 << 20, 'User-Agent': CHROME_UA() } }, (r) => { r.resume(); r.on('end', () => { if (Date.now() - t0 > WARM) { if (!mark) mark = Date.now() - 1; bytes += 8 << 20; tm = Date.now(); } go(); }); });
+            let sent = 0; const pump = () => { while (sent < (8 << 20)) { sent += chunk.length; if (!req.write(chunk)) { req.once('drain', pump); return; } } req.end(); }; pump();
+          }
+          req.on('error', fin);
+        };
+        go();
+      });
+      const ws = []; for (let i = 0; i < N; i++) ws.push(worker());
+      await new Promise((r) => setTimeout(r, WARM + WIN)); stop = true; await Promise.race([Promise.all(ws), new Promise((r) => setTimeout(r, 900))]);
+      const secs = Math.max(.5, (Math.min(tm || Date.now(), Date.now()) - (mark || t0)) / 1000);
+      const mbps = Math.round(bytes * 80 / 1e7 / secs) / 10; if (!(bytes > 0)) return { ok: false };
+      return phase === 'down' ? { ok: true, down: mbps } : { ok: true, up: mbps };
     }
     return { ok: false };
   } catch { return { ok: false }; } finally { clearTimeout(to); }
