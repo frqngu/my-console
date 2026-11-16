@@ -32,5 +32,10 @@ if exist "node_modules\electron\dist\electron.exe" (
   echo.
   echo Setup FAILED. Take a photo of the messages above and send it.
 )
+if exist "tools\install-controller-bridge.bat" (
+  echo.
+  choice /m "Also set up the PS5 controller bridge for the SCUF Omega (drivers + build, about 300 MB)"
+  if not errorlevel 2 call "tools\install-controller-bridge.bat" nopause
+)
 :end
 if /i not "%1"=="nopause" pause

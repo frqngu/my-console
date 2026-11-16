@@ -415,7 +415,7 @@ function widgetHtml(w, nav) {   // one widget; nav=false draws a non-clickable p
         <span class="wxsleg" data-achnote>Counting your achievements\u2026</span></button>`;
     case 'clock': { const h = new Date().getHours(), ph = h < 5 || h >= 21 ? 'night' : h < 8 ? 'dawn' : h < 17 ? 'day' : 'dusk'; return `${wxh({})}${fx}<i class="sky ${ph}"><i class="orbc"></i></i><span class="wclock" data-clock></span><span class="wdate" data-date></span><span class="wgreet">${greet()}${w.title ? ' \u00b7 ' + esc(w.title) : ''}</span></button>`; }
     case 'apps': return `${wxh({ act: 'data-go="apps"' })}<span class="xab">${apFanHtml()}</span><i class="xlbi">${ICON.apps || ICON.globe}</i><span class="xlbl">${esc(w.title || 'Browse your apps')}</span></button>`;
-    case 'controller': return `${wxh({ act: 'data-go="controller"' })}${fx}<i class="padglow"></i><img class="wpad" src="scuf.png" alt="" draggable="false">${ttl('Customize your controller', 'Buttons, sticks and profiles')}</button>`;
+    case 'controller': return `${wxh({ act: 'data-go="controller"' })}${fx}<i class="padglow"></i><img class="wpad wp-xb" src="scuf.png" alt="" draggable="false"><img class="wpad wp-ps" src="omega.png" alt="" draggable="false">${ttl('Customize your controller', 'Buttons, sticks and profiles')}</button>`;
     case 'settings': return gico(ICON.gear, 'Settings', 'Make it yours').replace('@', 'data-go="settings"').replace('w2 w-', 'w2 wx w-');
     case 'search': return gico(ICON.search, 'Search your games', 'Find anything fast').replace('@', 'data-act="search"').replace('w2 w-', 'w2 wx w-');
     case 'find': return gico(ICON.search, 'Find a new game', 'Browse the catalog').replace('@', 'data-act="find"').replace('w2 w-', 'w2 wx w-');
@@ -443,10 +443,37 @@ const api = window.consoleApi;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const focusIdx = () => [...document.querySelectorAll('[data-nav]')].indexOf(document.activeElement);
 // HINTS-START
+/* ---------- v1091: which controller is in use (PlayStation or Xbox) ---------- */
+let padSaving = false, padKindAuto = '', padKindLive = '', padReady = false, padLogged = '';
+const padKind = () => (settings && (settings.padType === 'xbox' || settings.padType === 'ps')) ? settings.padType : (padKindLive || padKindAuto || (settings && settings.lastPadKind) || 'xbox');
+function setPadKind() {
+  const k = padKind(), was = document.body.classList.contains('pad-ps');
+  document.body.classList.toggle('pad-ps', k === 'ps'); document.body.classList.toggle('pad-xbox', k !== 'ps');
+  if (was !== (k === 'ps')) { try { if (document.querySelector('.mp-3dslot')) mountPad(undefined, false); } catch {} try { const h = document.getElementById('hints'); if (h && !h.classList.contains('msg') && typeof screen !== 'undefined' && SCREENS[screen]) h.innerHTML = renderHints(SCREENS[screen].hints); } catch {} }
+}
+async function padKindInit() {
+  try { for (const g of (navigator.getGamepads ? navigator.getGamepads() : [])) if (g) padKindFrom(g); } catch {}   // a pad already known to the browser says what it is right away   // asked before the startup video is chosen, so the right video plays
+  try { const k = padKindLive || await Promise.race([window.consoleApi.padKind(), new Promise((r) => setTimeout(() => r(''), (settings && settings.lastPadKind) ? 4500 : 10000))]); if (k) padKindAuto = k; } catch {}
+  padReady = true; setPadKind();
+}
+function padKindFrom(p) {   // the controller itself says what it is as soon as it is touched
+  if (!p) return;
+  const id = String(p.id || ''), k = /054c|dualsense|dualshock|playstation|ps5|ps4|scuf/i.test(id) ? 'ps' : /045e|xbox|xinput/i.test(id) ? 'xbox' : '';
+  if (padLogged !== id) { padLogged = id; try { window.consoleApi.lagLog('controller: ' + id + ' | mapping=' + p.mapping + ' buttons=' + p.buttons.length + ' axes=' + p.axes.length + ' | using ' + (k || '(unknown, keeping ' + padKind() + ')')); } catch {} }
+  if (k && k !== padKindLive) { padKindLive = k; setPadKind(); }
+  if (k && settings && settings.lastPadKind !== k && !padSaving) { padSaving = true; window.consoleApi.setSettings({ ...settings, lastPadKind: k }).then((x) => { if (x) settings.lastPadKind = x.lastPadKind; }).catch(() => {}).finally(() => { padSaving = false; }); }   // remembered, so the next start already knows which controller you use
+}
+const PSSYM = {
+  A: '<svg class="gsv ps-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  B: '<svg class="gsv ps-o" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/></svg>',
+  X: '<svg class="gsv ps-s" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>',
+  Y: '<svg class="gsv ps-t" viewBox="0 0 24 24"><path d="M12 5.5l7 12H5z"/></svg>'
+};
+const PSTXT = { LB: 'L1', RB: 'R1', LT: 'L2', RT: 'R2', START: 'Options', BACK: 'Create' };
 const PADSYM = { START: '<svg class="gsv" viewBox="0 0 24 24"><path d="M6 8h12M6 12h12M6 16h12"/></svg>', BACK: '<svg class="gsv" viewBox="0 0 24 24"><rect x="5" y="8.5" width="9" height="8" rx="1.4"/><path d="M9 8.5V6.5a1.4 1.4 0 011.4-1.4h6.2a1.4 1.4 0 011.4 1.4v6.2a1.4 1.4 0 01-1.4 1.4H14.5"/></svg>', DU: '<svg class=\"gsv\" viewBox=\"0 0 24 24\"><path d=\"M9 3h6v6h6v6h-6v6H9v-6H3V9h6z\" opacity=\".4\"/><path class=\"f\" d=\"M9 3h6v6H9z\"/></svg>', DD: '<svg class=\"gsv\" viewBox=\"0 0 24 24\"><path d=\"M9 3h6v6h6v6h-6v6H9v-6H3V9h6z\" opacity=\".4\"/><path class=\"f\" d=\"M9 15h6v6H9z\"/></svg>', DL: '<svg class=\"gsv\" viewBox=\"0 0 24 24\"><path d=\"M9 3h6v6h6v6h-6v6H9v-6H3V9h6z\" opacity=\".4\"/><path class=\"f\" d=\"M3 9h6v6H3z\"/></svg>', DR: '<svg class=\"gsv\" viewBox=\"0 0 24 24\"><path d=\"M9 3h6v6h6v6h-6v6H9v-6H3V9h6z\" opacity=\".4\"/><path class=\"f\" d=\"M15 9h6v6h-6z\"/></svg>', LS: '<svg class=\"gsv\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"6.5\"/><path d=\"M12 2v3M12 19v3M2 12h3M19 12h3\"/><text x=\"12\" y=\"14.8\" font-size=\"8.5\" font-weight=\"700\" text-anchor=\"middle\" stroke=\"none\" fill=\"currentColor\">L</text></svg>', RS: '<svg class=\"gsv\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"6.5\"/><path d=\"M12 2v3M12 19v3M2 12h3M19 12h3\"/><text x=\"12\" y=\"14.8\" font-size=\"8.5\" font-weight=\"700\" text-anchor=\"middle\" stroke=\"none\" fill=\"currentColor\">R</text></svg>', L3: '<svg class=\"gsv\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"6.5\" fill=\"currentColor\"/><text x=\"12\" y=\"14.8\" font-size=\"8.5\" font-weight=\"700\" text-anchor=\"middle\" stroke=\"none\" fill=\"#16181d\">L</text></svg>', R3: '<svg class=\"gsv\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"6.5\" fill=\"currentColor\"/><text x=\"12\" y=\"14.8\" font-size=\"8.5\" font-weight=\"700\" text-anchor=\"middle\" stroke=\"none\" fill=\"#16181d\">R</text></svg>' };
 const XN = { A: 'A', B: 'B', X: 'X', Y: 'Y', LB: 'Left bumper', RB: 'Right bumper', LT: 'Left trigger', RT: 'Right trigger', L3: 'Left stick click', R3: 'Right stick click', DU: 'D-pad up', DD: 'D-pad down', DL: 'D-pad left', DR: 'D-pad right', BACK: 'View', START: 'Menu', GUIDE: 'Xbox button' };
 const xn = (k) => XN[k] || k;
-const padGlyph = (n) => `<b class="gl g${String(n).toLowerCase()}">${PADSYM[n] || esc(n)}</b>`;
+const padGlyph = (n) => { if (padKind() === 'ps') { if (PSSYM[n]) return `<b class="gl ps g${String(n).toLowerCase()}">${PSSYM[n]}</b>`; if (PSTXT[n]) return `<b class="gl ps pt g${String(n).toLowerCase()}">${PSTXT[n]}</b>`; } return `<b class="gl g${String(n).toLowerCase()}">${PADSYM[n] || esc(n)}</b>`; };
 function renderHints(str) {
   return String(str).split(/\s{2,}/).filter(Boolean).map((seg) => {
     const m = seg.match(/^(A|B|X|Y|LB|RB|LT|RT|START|BACK):\s*(.+)$/);
@@ -455,7 +482,8 @@ function renderHints(str) {
   }).join('');
 }
 // HINTS-END
-function note(t) { const h = $('#hints'); h.classList.add('msg'); h.textContent = t; h.classList.remove('bump'); void h.offsetWidth; h.classList.add('bump'); clearTimeout(noteT); noteT = setTimeout(() => { h.classList.remove('msg'); h.innerHTML = renderHints(SCREENS[screen].hints); }, 5000); }
+function notifPush(t, gid) { t = String(t || '').trim(); if (!t) return; const f = notifHist[0]; if (f && f.t === t && Date.now() - f.at < 4000) return; notifHist.unshift({ t, at: Date.now(), gid: gid || '' }); if (notifHist.length > 30) notifHist.pop(); notifUnread = true; }
+function note(t, keep) { try { if (keep) notifPush(t, keep === true ? '' : keep); } catch {} const h = $('#hints'); h.classList.add('msg'); h.textContent = t; h.classList.remove('bump'); void h.offsetWidth; h.classList.add('bump'); clearTimeout(noteT); noteT = setTimeout(() => { h.classList.remove('msg'); h.innerHTML = renderHints(SCREENS[screen].hints); }, 5000); }
 
 /* ---------- controller-only lock: while a controller is connected, mouse and keyboard do nothing here ---------- */
 let kbOpen = false;   // true only while the Pause-key menu is open in a keyboard-and-mouse game
@@ -517,7 +545,7 @@ function setTiles(c) {
   if (c === 'system') return stT('info', 'System info', 'data-act="sysinfo"') + stT('down', 'Updates', 'data-tool="upd"', 'Windows and console') + stT('gear', 'Backup & restore', 'data-tool="care"', 'Backup, restore, reset') + stT('power', 'Exit', 'data-act="quit"');
   if (c === 'devices') return stT('pad', 'Controller', 'data-go="controller"') + stS('sliders', 'deadzone') + stS('mouse', 'mouseSpeed') + stS('mouse', 'mouseCurve') + stT('net', 'Network', 'data-tool="wifi"', 'Wi-Fi and speed test') + stT('bt', 'Devices & screens', 'data-tool="dev"', 'Bluetooth and screen modes') + stT('gear', 'Display & sound', 'data-tool="win"', 'Sound, display, power mode');
   if (c === 'audio') return stOnOff('play', 'Music', 'music', 'music') + stS('play', 'musicVol') + stOnOff('play', 'Sounds', 'sfx', 'sfx') + stS('play', 'sfxVol');
-  if (c === 'prefs') return stOnOff('play', 'Startup intro', 'intro', 'intro') + stT('play', 'Startup video', 'data-act="introvideo"', settings.introVideo ? 'Change' : 'Choose a file') + (settings.introVideo ? stT('shield', 'Remove startup video', 'data-act="introvideorm"') : '') + `<button class="st-t" data-nav data-act="introenh">${ICON.play}<span class="st-l">Sharpen startup video (beta)<small>${settings.introEnhance === true ? 'On' : 'Off'}</small></span></button>` + stT('moon', 'Screensaver', 'data-act="saver"', (settings.saver == null ? 10 : settings.saver) ? 'After ' + (settings.saver == null ? 10 : settings.saver) + ' minutes idle' : 'Off');
+  if (c === 'prefs') return stOnOff('play', 'Startup intro', 'intro', 'intro') + stT('play', 'Startup video (Xbox controller)', 'data-act="introvideo"', settings.introVideo ? 'Change' : 'Choose a file') + (settings.introVideo ? stT('shield', 'Remove Xbox startup video', 'data-act="introvideorm"') : '') + stT('play', 'Startup video (PlayStation controller)', 'data-act="introvideops"', settings.introVideoPs ? 'Change' : 'Choose a file') + (settings.introVideoPs ? stT('shield', 'Remove PlayStation startup video', 'data-act="introvideopsrm"') : '') + stT('play', 'Sign-in background video (PlayStation)', 'data-act="signbg"', settings.signBgVideo ? 'Change' : 'Choose a file') + (settings.signBgVideo ? stT('shield', 'Remove sign-in background video', 'data-act="signbgrm"') : '') + stT('pad', 'Controller type', 'data-act="padtype"', ({ auto: 'Automatic (' + (padKind() === 'ps' ? 'PlayStation' : 'Xbox') + ')', xbox: 'Xbox', ps: 'PlayStation' })[settings.padType || 'auto']) + `<button class="st-t" data-nav data-act="introenh">${ICON.play}<span class="st-l">Sharpen startup video (beta)<small>${settings.introEnhance === true ? 'On' : 'Off'}</small></span></button>` + stT('moon', 'Screensaver', 'data-act="saver"', (settings.saver == null ? 10 : settings.saver) ? 'After ' + (settings.saver == null ? 10 : settings.saver) + ' minutes idle' : 'Off');
   return stS('library', 'scale') + stOnOff('star', 'Animations', 'motion', 'motion');
 }
 const setPane = () => `<h2 class="st-h">${esc(catLabel(setCat, SET_CATS.find((c) => c[0] === setCat)[1]))}</h2><div class="st-g">${setTiles(setCat)}</div>`;
@@ -566,10 +594,11 @@ const padBackArt = () => `<defs><pattern id="gpt" width="9" height="9" patternUn
   <path d="M262 262h76" stroke="#3b3c42" stroke-width="3" stroke-linecap="round"/>
   <g fill="#34363b" stroke="#6a6d74" stroke-width="2.5"><rect x="-17" y="-60" width="34" height="120" rx="17" transform="translate(150 270) rotate(18)"/><rect x="-15" y="-46" width="30" height="92" rx="15" transform="translate(228 236) rotate(7)"/><rect x="-15" y="-46" width="30" height="92" rx="15" transform="translate(372 236) rotate(-7)"/><rect x="-17" y="-60" width="34" height="120" rx="17" transform="translate(450 270) rotate(-18)"/></g>
   <g fill="#8d9097"><circle cx="150" cy="232" r="4"/><circle cx="450" cy="232" r="4"/><circle cx="228" cy="206" r="3.5"/><circle cx="372" cy="206" r="3.5"/></g>`;
-const padSvg = () => `<img class="pad-img scuf" src="scuf.png" alt="" draggable="false"><i class="pad-shadow"></i>`;
+const padSvg = () => `<img class="pad-img scuf wp-xb" src="scuf.png" alt="" draggable="false"><img class="pad-img scuf wp-ps" src="omega.png" alt="" draggable="false"><i class="pad-shadow"></i>`;
 function padName() {
   const p = typeof pickPad === 'function' ? pickPad() : null;
   if (!p) return 'No controller found';
+  if (padKind() === 'ps' && !/xbox|xinput|045e/i.test(p.id)) return 'SCUF Omega';
   return /xbox|xinput|045e/i.test(p.id) ? 'Xbox Wireless Controller' : (p.id.replace(/\(.*$/, '').trim().slice(0, 40) || 'Controller');
 }
 SCREENS.controller = {
@@ -582,10 +611,11 @@ SCREENS.controller = {
     <div class="ctl-b"><button class="ctl-sq" data-nav data-act="ctlmore" data-cap="More options">${ICON.dots}</button><button class="ctl-sq" data-nav data-act="ctlsticks" data-cap="Stick and mouse feel">${ICON.flask}</button></div>
     <div class="ctl-cap"></div></div>`,
 };
-function ctlMenu(tile) { popMenu(tile, 'Controller', [['ctl:reset', 'Restore default buttons'], ['ctl:sticks', 'Stick and mouse feel']], { ctl: true }); }
+function ctlMenu(tile) { popMenu(tile, 'Controller', [['ctl:reset', 'Restore default buttons'], ['ctl:sticks', 'Stick and mouse feel'], ['ctl:bridge', 'PS5 controller bridge: install or repair']], { ctl: true }); }
 function ctlAct(a) {
   if (a === 'ctl:reset') { change({ binds: DEF_BINDS_UI, mbinds: DEF_MBINDS_UI }); note('Buttons restored to default.'); }
   else if (a === 'ctl:sticks') { bindTabK = 'sticks'; show('binds'); }
+  else if (a === 'ctl:bridge') { Promise.resolve(api.bridgeInstall()).then((r) => note(r && r.ok ? 'Setup is open in a black window. Say yes to the Windows admin prompt and wait until it says DONE.' : 'Could not open the setup.')).catch(() => {}); }
 }
 const BIND_TABS = [['console', 'Front'], ['back', 'Back'], ['sticks', 'Sticks'], ['vibration', 'Vibration'], ['test', 'Test']];
 const ACT_NAMES = { console: { confirm: 'Select', back: 'Back', search: 'Search with keyboard', remove: 'Remove game' }, desktop: { left: 'Left click', right: 'Right click', kbd: 'Typing keyboard', enter: 'Enter key', esc: 'Escape key', back: 'Browser back' } };
@@ -595,7 +625,7 @@ const ACT_SHORT = { console: { confirm: 'Select', back: 'Back', search: 'Search'
 const MP = {LT: [280, 50, 372, 104], LB: [360, 50, 398, 123], BACK: [440, 50, 454, 163], START: [560, 50, 546, 163], RB: [640, 50, 602, 123], RT: [720, 50, 628, 104], L3: [165, 175, 382, 195], DU: [165, 255, 436, 241], DL: [165, 335, 417, 261], DR: [165, 415, 457, 261], DD: [165, 495, 436, 280], Y: [835, 175, 619, 166], B: [835, 255, 650, 195], A: [835, 335, 620, 224], X: [835, 415, 590, 194], R3: [835, 495, 563, 258]};
 const MPBACK = {P2: [835, 290, 617, 308], P1: [835, 430, 561, 288], P3: [165, 290, 383, 308], P4: [165, 430, 442, 288]};
 let mapView = 'front';
-['scuf.png', 'scuf_back.png'].forEach((f) => { const i = new Image(); i.src = f; if (i.decode) i.decode().catch(() => {}); });
+['scuf.png', 'scuf_back.png', 'omega.png', 'omega_back.png'].forEach((f) => { const i = new Image(); i.src = f; if (i.decode) i.decode().catch(() => {}); });
 const FIXED = { console: { LB: 'Tabs', RB: 'Tabs', START: 'Switch profile', LT: 'Not used', RT: 'Not used', LS: 'Move', RS: 'Not used', L3: 'Mouse mode', R3: 'Mouse mode', DU: 'Move', DL: 'Move', DR: 'Move', DD: 'Move' },
   desktop: { BACK: 'Not used', START: 'Switch profile', LT: 'Not used', RT: 'Not used', LS: 'Mouse', RS: 'Scroll', L3: 'Mouse mode', R3: 'Mouse mode', DU: 'Arrow keys', DL: 'Arrow keys', DR: 'Arrow keys', DD: 'Arrow keys' } };
 function mpLine(x, y, ex, ey) {   // the line stops just short of the control so it stays visible
@@ -609,7 +639,7 @@ function mpBox(b) {
   const mode = bindTabK === 'back' ? 'console' : bindTabK, ok = MODE_BTNS[mode].includes(b), src = mode === 'console' ? settings.binds : settings.mbinds;
   const act = ok ? Object.keys(src).find((k) => src[k] === b) : '';
   const pv = /^P\d$/.test(b) ? (settings.paddles || {})[b] : '';
-  const txt = ok ? (act ? ACT_SHORT[mode][act] : 'Not used') : /^P\d$/.test(b) ? (pv ? PAD_SHORT[pv] : 'Not set') : (FIXED[mode][b] || 'Not used');
+  const txt = ok ? (act ? (ACT_SHORT[mode][act] || ACT_NAMES[mode][act] || "Set") : 'Not used') : /^P\d$/.test(b) ? (pv ? PAD_SHORT[pv] : 'Not set') : (FIXED[mode][b] || 'Not used');
   return `<button class="mp-b mp-${b}${ok ? '' : ' fx'}${pv ? ' set' : ''}" data-nav data-mpb="${b}"><span class="mp-g">${padGlyph(b)}</span>${/^[ABXY]$/.test(b) ? '' : `<span class="mp-n">${/^P\d$/.test(b) ? 'Paddle ' + b.slice(1) : esc(xn(b))}</span>`}<span class="mp-a">${esc(txt)}</span></button>`;
 }
 let testing = false, testB = 0, xboxLit = 0, flipping = false, rtWas = false, stWas = false;
@@ -688,9 +718,18 @@ function spPlayingNow() {
   if (homeNp.on) {
     const rec = (homeNp.recent || []).map((r) => `<button class="gd-rc" data-nav data-gd="npplay:${esc(r.uri)}"><i class="gd-rci" data-gimg="${esc(r.img)}"></i><span><b>${esc(r.name)}</b><small>${esc(r.sub)}</small></span></button>`).join('');
     setTimeout(() => document.querySelectorAll('[data-gimg]').forEach((e) => { const u = e.dataset.gimg; if (/^https:\/\/[a-z0-9.-]*(scdn\.co|spotifycdn\.com)\//i.test(u)) e.style.backgroundImage = `url("${u}")`; }), 0);
-    return `<div class="gd-pl">Spotify</div><div class="gd-np"><div class="gd-npi"><i class="gd-npc" id="gnpc"></i><span class="gd-npt"><b id="gnpb">${esc(homeNp.title)}</b><small id="gnps">${esc(homeNp.artist)}</small></span></div><div class="gd-npr">${gb('prev', 'prev')}${gb('rep', 'repeat', homeNp.rep !== 'off')}${gb('pp', homeNp.playing ? 'pause' : 'play', false, true)}${gb('shuf', 'shuffle', homeNp.shuf)}${gb('next', 'next')}</div><div class="gd-npbar"><i id="gnbar"></i></div><div class="gd-npts"><span id="gnt0">0:00</span><span id="gnt1">0:00</span></div><button class="gd-vol" id="gvol" data-nav data-gd="vol"><span>Volume</span><span class="gd-vb"><i id="gvbar" style="width:${Math.max(0, homeNp.vol)}%"></i></span><b id="gvn">${homeNp.vol >= 0 ? homeNp.vol : '\u2013'}</b></button></div>${gdI('', 'Launch Spotify', 'data-gd="spresume"')}${rec ? `<div class="gd-pl">Recently played</div>${rec}` : ''}<div class="gd-sep"></div>`;
+    return `<div class="gd-pl">Spotify</div><div class="gd-np"><div class="gd-npi"><i class="gd-npc" id="gnpc"></i><span class="gd-npt"><b id="gnpb">${esc(homeNp.title)}</b><small id="gnps">${esc(homeNp.artist)}</small></span></div><div class="gd-npr">${gb('prev', 'prev')}${gb('rep', 'repeat', homeNp.rep !== 'off')}${gb('pp', homeNp.playing ? 'pause' : 'play', false, true)}${gb('shuf', 'shuffle', homeNp.shuf)}${gb('next', 'next')}</div><div class="gd-npbar"><i id="gnbar"></i></div><div class="gd-npts"><span id="gnt0">0:00</span><span id="gnt1">0:00</span></div><button class="gd-vol" id="gvol" data-nav data-gd="vol"><span>Volume</span><span class="gd-vb"><i id="gvbar" style="width:${Math.max(0, homeNp.vol)}%"></i></span><b id="gvn">${homeNp.vol >= 0 ? homeNp.vol : '\u2013'}</b></button></div>${gdI('', 'Launch Spotify', 'data-gd="spresume"')}${rec ? `<div class="gd-pl">Recently played</div>${rec ? psSec('Recently played') + rec : ''}` : ''}<div class="gd-sep"></div>`;
   }
   return `<div class="gd-pl">Spotify</div>${title ? `<p class="gd-t">\u266a ${esc(title)}</p>` : '<p class="gd-t">Open in the background</p>'}${gdI('play', 'Resume Spotify', 'data-gd="spresume"')}<div class="gd-sep"></div>`;
+}
+let gdRow = false, psClockT = null, cbattPct = -1, notifHist = [], notifUnread = false, gbTab = 'parties';
+const psOn = () => guideOn && document.body.classList.contains('gd-ps');
+function psEnterRow() { const f = document.querySelector('#guide .gd-body [data-nav]'); if (!f) return; gdRow = true; document.body.classList.add('gd-row'); f.focus({ preventScroll: true }); SND.play('move'); }
+function psLeaveRow() { psHintSet(null); try { $('#hints').innerHTML = renderHints('A: Open    B: Close    LB: Previous    RB: Next'); } catch {} gdRow = false; document.body.classList.remove('gd-row'); const c = document.activeElement; if (c && c.blur && c.closest && c.closest('#guide')) c.blur(); }
+const psTime = () => new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const psClock = () => `<b>${psTime()}</b><small>${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</small>`;
+function psExtras() {   // the clock and the Customize hint, like the PS5 Control Center
+  return `<div class="gd-clock">${psClock()}</div><button class="gd-cust" tabindex="-1" data-gd="pscust"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14"/></svg>Customize</button>`;
 }
 const gdI = (ico2, label, attrs) => `<button class="gd-i" data-nav ${attrs}>${ico2 ? ICON[ico2] : '<i class="gd-s"></i>'}<span>${label}</span></button>`;
 ICON.bell = ico('<path d="M6 16V11a6 6 0 0112 0v5l1.6 2H4.4z"/><path d="M10 20.5a2.2 2.2 0 004 0"/>');
@@ -699,9 +738,30 @@ ICON.mic = ico('<rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 
 ICON.music = ico('<path d="M9 17.5V5.5l10-2v12"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/>');
 ICON.switcher = ico('<rect x="4" y="7" width="13" height="10" rx="1.6"/><path d="M8 4h12v10"/>');
 const GD_TABS_X = [['profile', 'profile'], ['friends', 'people'], ['library', 'library'], ['settings', 'gear']];
-const gdTabs = () => GD_TABS_X;   // four tabs: you, friends and party, games, settings
+const GD_TABS_PS = [['home', 'home', 'Home'], ['capture', 'cam', 'Capture'], ['notifs', 'bell', 'Notifications'], ['friends', 'gamebase', 'Game Base'], ['music', 'music', 'Music'], ['volume', 'speaker', 'Sound'], ['party', 'mic', 'Mic'], ['controller', 'pad', 'Accessories'], ['profile', 'profile', 'Profile'], ['power', 'power', 'Power']];
+let psCust = false, psGrab = false;
+const psFixed = (k) => k === 'home' || k === 'power';
+function psTabsAll() {   // your order and your hidden icons (Home and Power always stay)
+  const base = GD_TABS_PS.filter((t) => t[0] !== 'party' || psIn()), ord = (settings && settings.psOrder) || [];
+  if (!ord.length) return base;
+  const pos = (t) => { const k = t[0], i = ord.indexOf(k); if (i >= 0) return i; let d = GD_TABS_PS.findIndex((x) => x[0] === k) - 1; while (d >= 0 && ord.indexOf(GD_TABS_PS[d][0]) < 0) d--; return d < 0 ? -1 : ord.indexOf(GD_TABS_PS[d][0]) + 0.5; };
+  return base.map((t) => [t, pos(t)]).sort((x, y) => x[1] - y[1]).map((x) => x[0]);
+}
+const psHidden = (k) => !psFixed(k) && ((settings && settings.psHide) || []).includes(k);
+const gdTabs = () => padKind() === 'ps' ? psTabsAll().filter((t) => psCust || !psHidden(t[0])) : GD_TABS_X;   // four tabs: you, friends and party, games, settings
 let frOff = false;
-const gdStrip = () => gdTabs().map(([k, ic, lb]) => `<button class="gd-tb${k === (guideTab === 'recents' ? 'library' : guideTab) ? ' cur' : ''}" tabindex="-1" data-l="${lb || ''}" data-gd="tab:${k}">${k === 'profile' ? avatarSpan('sm') : ICON[ic]}</button>`).join('');
+const gdStrip = () => gdTabs().map(([k, ic, lb]) => {
+  let inner = k === 'profile' ? avatarSpan('sm') : (padKind() === 'ps' ? pci(ic) : ICON[ic]), bd = '';
+  if (padKind() === 'ps') {
+    if (k === 'library') { const g = dash ? games.find((x) => x.title === dash.title) : (rcList()[0] || null), u = g ? (sqMap.has(g.id) ? 'ctheme://img/' + sqMap.get(g.id) : gImg(g)) : '';  }
+    if (k === 'friends' && frAny() && frOnline()) bd = `<em class="gd-bd on">${frOnline()}</em>`;
+    if (k === 'notifs' && notifUnread) bd = '<em class="gd-bd dot"></em>';
+    if (k === 'controller' && cbattPct >= 0) bd = `<em class="gd-bd bat">${cbattPct}%</em>`;
+    if (k === 'profile') bd = '<em class="gd-bd dot on"></em>';
+  }
+  const ck = padKind() === 'ps' && psCust ? `<i class="gd-ck${psHidden(k) ? '' : ' on'}${psFixed(k) ? ' fx' : ''}"></i>` : '';
+  return `<button class="gd-tb${k === (guideTab === 'recents' ? 'library' : guideTab) ? ' cur' : ''}${psCust && psGrab && k === guideTab ? ' grab' : ''}${padKind() === 'ps' && psHidden(k) ? ' hid' : ''}" tabindex="-1" data-l="${lb || ''}" data-gd="tab:${k}">${inner}${bd}${ck}</button>`;
+}).join('');
 const customIds = new Set();
 async function loadPosters() {
   try {   // covers you chose yourself come first and always win
@@ -781,8 +841,118 @@ function partyInline() {   // the Party block on the first tab of the Xbox menu,
   return `${head}<p class="gd-t">${esc(s.channel.name)} · ${s.members.length} in the channel</p>${s.members.slice(0, 8).map(row).join('')}${gdI('headset', s.me.mute ? 'Unmute' : 'Mute', 'data-gd="pt:mute"')}${gdI('headset', s.me.deaf ? 'Undeafen' : 'Deafen', 'data-gd="pt:deaf"')}${open}${gdI(null, 'Leave voice channel', 'data-gd="pt:leave"')}<div class="gd-sep"></div>`;
 }
 
+
+const fi = (d) => `<svg class="ico pcf" viewBox="0 0 24 24">${d}</svg>`;
+const PSICO = {
+  home: fi('<path d="M12 2.9 2.6 11.3a1 1 0 0 0 .7 1.7H5v7a1 1 0 0 0 1 1h3.4v-5.4h5.2V22H18a1 1 0 0 0 1-1v-8h1.7a1 1 0 0 0 .7-1.7z"/>'),
+  library: fi('<path fill-rule="evenodd" d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zm3.2 5.2v7.6l6.2-3.8z"/>'),
+  bell: fi('<path d="M12 2.6a1.4 1.4 0 0 1 1.4 1.4v.4A6.2 6.2 0 0 1 18.2 10.5v3.8l2 2.5v1.2H3.8v-1.2l2-2.5v-3.8A6.2 6.2 0 0 1 10.6 4.4V4A1.4 1.4 0 0 1 12 2.6z"/><path d="M9.5 19.6h5a2.5 2.5 0 0 1-5 0z"/>'),
+  gamebase: fi('<circle cx="12" cy="6.9" r="3"/><path d="M6.6 14.6c.3-2.9 2.4-4.7 5.4-4.7s5.1 1.8 5.4 4.7z"/><path ' + 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" d="M3.2 16.4c0 2.2 4.2 3.9 8.8 3.9s8.8-1.7 8.8-3.9"/><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" d="M3.2 16.4c0-1.3 1.7-2.4 3.8-3M20.8 16.4c0-1.3-1.7-2.4-3.8-3"/>'),
+  music: fi('<path d="M8.6 4.4 20 2.2v13.4a3.2 3.2 0 1 1-2.2-3V7.1L10.8 8.5v9.1A3.2 3.2 0 1 1 8.6 14.6z"/>'),
+  speaker: fi('<path d="M3 9.4h3.9L12.4 4.6v14.8l-5.5-4.8H3z"/><path ' + 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M15.8 9a4.3 4.3 0 0 1 0 6M18.7 6.2a8.2 8.2 0 0 1 0 11.6"/>'),
+  mic: fi('<rect x="8.6" y="2.6" width="6.8" height="11.6" rx="3.4"/><path ' + 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M5.6 11.2a6.4 6.4 0 0 0 12.8 0M12 17.6v3.2M8.6 20.8h6.8"/>'),
+  pad: fi('<path fill-rule="evenodd" d="M7.7 7.6h8.6c2.4 0 4.1 1.7 4.6 4.1l1 4.5c.3 1.7-.6 3-2.2 3-1 0-1.7-.5-2.3-1.4l-1-1.5a1.8 1.8 0 0 0-1.5-.8H9.4a1.8 1.8 0 0 0-1.5.8l-1 1.5c-.6.9-1.3 1.4-2.3 1.4-1.6 0-2.5-1.3-2.2-3l1-4.5c.5-2.4 2.2-4.1 4.6-4.1zM7.9 10v1.1H6.8v1.3h1.1v1.1h1.3v-1.1h1.1v-1.3H9.2V10zM15.6 10.7a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm2.2 2.2a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z"/>'),
+  power: fi('<path ' + 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 3v8.4M7 6.2a8.2 8.2 0 1 0 10 0"/>'),
+  bars: fi('<rect x="3" y="4" width="4.6" height="16" rx="1.2"/><rect x="9.2" y="4" width="4.6" height="16" rx="1.2"/><path d="m15.8 5.8 4-1.1 2.2 14.7-4 1.1z"/>'),
+  apps: fi('<rect x="3.5" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="3.5" width="7.2" height="7.2" rx="2"/><rect x="3.5" y="13.3" width="7.2" height="7.2" rx="2"/><rect x="13.3" y="13.3" width="7.2" height="7.2" rx="2"/>'),
+  trophy: fi('<path d="M7 3.5h10v6.2a5 5 0 0 1-10 0z"/><path ' + 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M7 5.5H3.8c0 3.3 1.2 5 3.6 5.4M17 5.5h3.2c0 3.3-1.2 5-3.6 5.4M12 14.7v3.2"/><path d="M7.6 19.4h8.8V21H7.6z"/>'),
+  cam: fi('<path fill-rule="evenodd" d="M8.6 4.8 7.6 6.5H5.3A2.3 2.3 0 0 0 3 8.8v9A2.3 2.3 0 0 0 5.3 20h13.4a2.3 2.3 0 0 0 2.3-2.3v-9a2.3 2.3 0 0 0-2.3-2.3h-2.3l-1-1.7zM12 17.2a3.8 3.8 0 1 1 0-7.6 3.8 3.8 0 0 1 0 7.6z"/>'),
+  film: fi('<path fill-rule="evenodd" d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3zm6 5.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6zm0 2.4a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z"/>'),
+  view: fi('<path d="M5.4 8.4h9.4a2.4 2.4 0 0 1 2.4 2.4v8.4a2.4 2.4 0 0 1-2.4 2.4H5.4A2.4 2.4 0 0 1 3 19.2v-8.4a2.4 2.4 0 0 1 2.4-2.4z"/><path ' + 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M8 5h9.6A2.4 2.4 0 0 1 20 7.4V16"/>'),
+  monitor: fi('<path d="M5.2 3.8h13.6a2.2 2.2 0 0 1 2.2 2.2v9a2.2 2.2 0 0 1-2.2 2.2H5.2A2.2 2.2 0 0 1 3 15V6a2.2 2.2 0 0 1 2.2-2.2z"/><path ' + 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M12 17.2v3.4M8.2 20.6h7.6"/>'),
+  paint: fi('<path ' + 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/>'),
+  tools: fi('<path d="M15.2 3.6a5 5 0 0 0-5.3 6.6l-6 6a2.3 2.3 0 0 0 3.2 3.3l6-6A5 5 0 0 0 20.6 8l-3 3-2.8-.8-.8-2.8 3-3a5 5 0 0 0-1.8-.8z"/>'),
+  play: fi('<path fill-rule="evenodd" d="M12 2.8a9.2 9.2 0 1 1 0 18.4 9.2 9.2 0 0 1 0-18.4zM10 8v8l6.2-4z"/>'),
+  info: fi('<path fill-rule="evenodd" d="M12 2.8a9.2 9.2 0 1 1 0 18.4 9.2 9.2 0 0 1 0-18.4zm-.9 8.4v5.6h1.8v-5.6zM12 7.2a1.1 1.1 0 1 0 0 2.2 1.1 1.1 0 0 0 0-2.2z"/>'),
+  people: fi('<circle cx="9" cy="8" r="3.4"/><path d="M2.8 19.6c.3-3.6 2.8-5.8 6.2-5.8s5.9 2.2 6.2 5.8z"/><circle cx="17.4" cy="9" r="2.6"/><path d="M16.6 13.9c3.1-.1 5.2 1.7 5.5 4.8h-5.1c-.1-1.8-.6-3.3-1.7-4.4z"/>'),
+  headset: fi('<path ' + 'fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4.4 14.4v-2.2a7.6 7.6 0 0 1 15.2 0v2.2"/><rect x="3" y="13.2" width="4" height="6.6" rx="1.6"/><rect x="17" y="13.2" width="4" height="6.6" rx="1.6"/>'),
+  moon: fi('<path d="M20 14.8A8.6 8.6 0 0 1 9.2 4a8.6 8.6 0 1 0 10.8 10.8z"/>'),
+  sliders: fi('<path ' + 'fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M4 7h9M18 7h2M4 12h2M11 12h9M4 17h10M19 17h1"/><circle cx="15.5" cy="7" r="2.6"/><circle cx="8.5" cy="12" r="2.6"/><circle cx="16.5" cy="17" r="2.6"/>'),
+  mouse: fi('<path fill-rule="evenodd" d="M12 2.8a5.6 5.6 0 0 0-5.6 5.6v7.2a5.6 5.6 0 0 0 11.2 0V8.4A5.6 5.6 0 0 0 12 2.8zm-.9 2.2v4.4H7.9V8.4a4 4 0 0 1 3.2-3.4z"/>'),
+  gear: fi('<path fill-rule="evenodd" d="M10.3 2.6h3.4l.5 2.4c.5.2 1 .5 1.5.8l2.3-.8 1.7 2.9-1.8 1.6c.1.5.1 1 0 1.5l1.8 1.6-1.7 2.9-2.3-.8c-.5.3-1 .6-1.5.8l-.5 2.4h-3.4l-.5-2.4c-.5-.2-1-.5-1.5-.8l-2.3.8-1.7-2.9 1.8-1.6a5 5 0 0 1 0-1.5L4.3 7.9 6 5l2.3.8c.5-.3 1-.6 1.5-.8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" transform="translate(0 .3)"/>'),
+  switcher: fi('<path d="M5 8h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z"/><path ' + 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M8 4.8h11a2 2 0 0 1 2 2V16"/>'),
+};
+const pci = (n) => PSICO[n] || ICON[n] || '';
+const psSec = (t) => `<div class="pc-sec">${t}</div>`;
+const psI = (ic, title, sub, act, tone, cls) => `<button class="gd-i pc pc-act t-${tone || 'blue'}${cls ? ' ' + cls : ''}" data-nav data-gd="${act}"><span class="pc-ic">${pci(ic)}</span><span class="pc-wm">${pci(ic)}</span><span class="pc-tx"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
+const psV = (ic, title, pct, act, tone) => `<button class="gd-i pc pc-stat t-${tone || 'blue'}" data-nav data-gd="${act}"><span class="pc-ic">${ICON[ic] || ''}</span><em class="pc-num">${pct}<i>%</i></em><span class="pc-tx"><b>${title}</b><small>Press to raise, wraps at the top</small></span><span class="pc-bar" data-pct="${pct}"><i></i></span></button>`;
+const psGame = (g, tag, act, tone) => `<button class="gd-i pc pc-game t-${tone || 'blue'}" data-nav data-gd="${act}"><i class="th${gImg(g) ? '' : ' noart'}" data-img="${esc(sqMap.has(g.id) ? 'ctheme://img/' + sqMap.get(g.id) : gImg(g))}"${gImg(g) ? '' : ` data-hue="${hue(g.title)}"`}></i><span class="pc-tx"><b>${esc(g.title)}</b>${tag ? `<small>${esc(tag)}</small>` : ''}</span></button>`;
+const psEmpty = (t) => `<div class="pc pc-empty"><span class="pc-tx"><b>${t}</b></span></div>`;
+const psSw = (ic, label, on, act) => `<button class="gd-i pc pc-act pc-row" data-nav data-gd="${act}"><span class="pc-ic">${pci(ic)}</span><span class="pc-wm">${pci(ic)}</span><span class="pc-tx"><b>${label}</b></span><span class="pc-sw${on ? ' on' : ''}"><i></i></span></button>`;
+const psMem = (m) => `<div class="gd-fr pc pc-mem" data-pt-row>${ptDot(m)}<span class="pc-tx"><b>${esc(m.name)}</b><small>${m.deaf ? 'Deafened' : m.mute ? 'Muted' : m.speaking ? 'Speaking' : 'Connected'}</small></span></div>`;
+const psIn = () => { const s = partyState; return !!(s && s.connected && s.auth === 'ok' && s.channel); };
+function psMic() {   // only shown while you are in a voice channel
+  const s = partyState, me = (s && s.me) || {}, I = psI;
+  return psSw('mic', 'Mute', !!me.mute, 'pt:mute') + psSw('headset', 'Deafen', !!me.deaf, 'pt:deaf')
+    + I('headset', dcWin ? 'Done, hide Discord' : 'Share or watch a screen', dcWin ? 'Back to the console' : 'Discord with the cursor', dcWin ? 'dc:hide' : 'dc:raise', 'purple')
+    + I('power', 'Leave voice channel', s && s.channel ? esc(s.channel.name) : '', 'pt:leave', 'red');
+}
+function psChannels() {   // every voice channel on your server, as rows
+  if (!partyList) { api.partyList().then((x) => { partyList = x && x.ok ? ptOnlyMine(x.list) : []; if (guideOn && guideTab === 'friends') renderGuide(undefined, true); }).catch(() => { partyList = []; if (guideOn && guideTab === 'friends') renderGuide(undefined, true); }); return psEmpty('Looking at your servers…'); }
+  const ch = partyList.flatMap((g) => g.channels.map((c) => psI('headset', esc(c.name), esc(g.name), 'pt:join:' + esc(c.id), 'teal')));
+  return ch.length ? ch.join('') : psEmpty('No voice channels found');
+}
+function psGameBase() {   // Game Base: Parties and Friends, like the real one (L1 / R1 or left / right switch)
+  const I = psI, nfr = frAny() ? frOnline() : 0, s = partyState;
+  const tabs = `<div class="pc-gbt"><span class="${gbTab === 'parties' ? 'on' : ''}">Parties</span><span class="${gbTab === 'friends' ? 'on' : ''}">Friends${nfr ? `<i>${nfr}</i>` : ''}</span></div>`;
+  if (gbTab === 'parties') {
+    const me = (s && s.me) || {}, vb = (ic, lab, on, act) => `<button class="gd-i pc pc-act pc-vb${on ? ' on' : ''}" data-nav data-gd="${act}" title="${lab}" aria-label="${lab}"><span class="pc-ic">${pci(ic)}</span><small>${lab}</small></button>`;
+    let h = tabs + (psIn() ? `<div class="pc-vbar">${vb('mic', me.mute ? 'Unmute' : 'Mute', !!me.mute, 'pt:mute')}${vb('headset', me.deaf ? 'Undeafen' : 'Deafen', !!me.deaf, 'pt:deaf')}${vb('monitor', dcWin ? 'Hide' : 'Share screen', !!dcWin, dcWin ? 'dc:hide' : 'dc:raise')}</div>` : I('people', 'Join voice channel', '', 'pt:quick', 'blue', 'pc-pilld'));
+    if (psIn()) h += psSec('Your party') + `<button class="gd-i pc pc-act pc-party" data-nav data-gd="pt:list"><span class="pc-ic">${ICON.headset}</span><span class="pc-tx"><b>${esc(s.channel.name)}</b><small>Discord voice</small></span><i class="pc-ct">${s.members.length}</i></button>` + psSec('In voice chat: ' + s.members.length) + s.members.slice(0, 8).map(psMem).join('') + I('power', 'Leave voice channel', 'Disconnect', 'pt:leave', 'red');
+    else h += psSec('Voice channels') + psChannels();
+    return h;
+  }
+  if (!friendsData) return tabs + psEmpty('Looking for your friends…');
+  if (!friendsData.ok) return tabs + psEmpty(esc(friendsData.error || 'Could not load your friends.')) + I('gear', 'Open Settings', 'Set up friends', 'settings', 'blue');
+  const on = friendsData.friends.filter((f) => f.game || f.state > 0), off = friendsData.friends.filter((f) => !f.game && !f.state);
+  return tabs + psSec('Online: ' + on.length) + (on.length ? on.map(frRow).join('') : psEmpty('Nobody is online right now')) + (off.length ? (frOff ? psSec('Offline: ' + off.length) + off.map(frRow).join('') : '') + I('people', frOff ? 'Hide offline' : 'Show offline', off.length + ' offline', 'fr:off', 'purple') : '');
+}
+function psCustToggle() { psCust = !psCust; psGrab = false; if (psCust) psLeaveRow(); renderGuide(); }
+function psMoveTab(d) { const keys = gdTabs().map((t) => t[0]), i = keys.indexOf(guideTab), j = i + d; if (i < 0 || j < 0 || j >= keys.length) return; [keys[i], keys[j]] = [keys[j], keys[i]]; setLocal({ psOrder: keys }); SND.play('tab'); renderGuide(); }
+function psToggleHide() { const k = guideTab; if (psFixed(k)) { note('Home and Power always stay.'); return; } const h = new Set((settings && settings.psHide) || []); if (h.has(k)) h.delete(k); else h.add(k); setLocal({ psHide: [...h], psOrder: gdTabs().map((t) => t[0]) }); SND.play('select'); renderGuide(); }
+function psGbToggle() { gbTab = gbTab === 'parties' ? 'friends' : 'parties'; SND.play('tab'); renderGuide(0); }
+const psVoiceCard = () => { const s = partyState; return `<button class="gd-i pc pc-act pc-vc" data-nav data-gd="tab:friends"><span class="pc-ic">${pci('headset')}</span><span class="pc-faces">${s.members.slice(0, 4).map(ptDot).join('')}</span><span class="pc-tx"><b>${esc(s.channel.name)}</b><small>${s.members.length} in voice chat</small></span></button>`; };
+const psMediaCard = () => `<button class="gd-i pc pc-act pc-md" data-nav data-gd="tab:music"><span class="pc-ic">${pci('music')}</span><span class="pc-wm">${pci('music')}</span><span class="pc-tx"><b>${esc(homeNp.title)}</b><small>${esc(homeNp.artist || 'Spotify')}</small></span></button>`;
+const psProg = (e) => { const g = games.find((x) => x.title && x.title.toLowerCase() === String(e.title).toLowerCase()), pc = e.total ? Math.round(e.got / e.total * 100) : 0, u = g ? (sqMap.has(g.id) ? 'ctheme://img/' + sqMap.get(g.id) : gImg(g)) : '';
+  return `<button class="gd-i pc pc-prog" data-nav data-gd="${g ? 'game:' + esc(g.id) : 'ach'}"><i class="th${u ? '' : ' noart'}" data-img="${esc(u)}"${u ? '' : ` data-hue="${(e.appid || 0) % 360}"`}></i><em class="pc-pct">${pc}<i>%</i></em><span class="pc-chip">${pc >= 100 ? 'Completed' : 'In progress'}</span><span class="pc-tx"><b>${esc(e.title)}</b><small>Trophies · ${e.got} of ${e.total}</small></span></button>`; };
+function psJoin() {   // the channel picker, as tiles
+  const I = psI;
+  if (!partyList) { api.partyList().then((x) => { partyList = x && x.ok ? ptOnlyMine(x.list) : []; if (guideOn && guidePage === 'ptjoin') renderGuide(); }).catch(() => { partyList = []; if (guideOn && guidePage === 'ptjoin') renderGuide(); }); return psEmpty('Looking at your servers\u2026'); }
+  const ch = partyList.flatMap((g) => g.channels.map((c) => I('headset', esc(c.name), esc(g.name), 'pt:join:' + esc(c.id), 'teal')));
+  return (ch.length ? ch.join('') : psEmpty('No voice channels found')) + I('info', 'Back', 'Voice chat', 'pt:back', 'blue');
+}
+function psBody() {   // the PlayStation Control Center, tab by tab (null = use the shared page below)
+  const t = guideTab, I = psI;
+  if (guidePage === 'restart') return I('power', 'Restart now', 'Windows restarts right away', 'dorestart', 'red') + I('info', 'Cancel', 'Save your work in other apps first', 'poback', 'blue');
+  if (guidePage === 'off') return I('power', 'Turn off now', 'Windows shuts down right away', 'shutdown', 'red') + I('info', 'Cancel', 'Save your work in other apps first', 'poback', 'blue');
+  if (guidePage === 'power' || t === 'power') return (dash ? I('info', 'Close game', 'Quit ' + esc(dash.title), 'closegame', 'red') : '') + I('apps', 'Exit console', 'Close My Console', 'exit', 'blue') + I('moon', 'Sleep', 'Put the PC to sleep', 'sleep', 'purple') + I('power', 'Restart PC', 'Windows restarts', 'restart', 'amber') + I('info', 'Lock Windows', 'Back to the sign-in screen', 'lock', 'teal') + I('power', 'Turn off PC', 'Shut Windows down', 'off', 'red');
+  if (psCust) return '<div class="pc-cust"><b>Customize Control Center</b><small>Pick an icon with A, then move it with Left and Right. Press Up to show or hide it. Press B when you are done.</small></div>';
+  const g = dash ? games.find((x) => x.title === dash.title) : null;
+  const playing = dash ? (g ? psGame(g, 'Resume', 'resume', 'green') : I('play', 'Resume ' + esc(dash.title), 'Running now', 'resume', 'green')) : '';
+  if (t === 'home') return '';
+  if (t === 'library') {
+    if (!achData) loadAch().then(() => { if (guideOn && guideTab === 'library') renderGuide(undefined, true); });
+    const L = achData && achData.ok ? (achData.list || []).slice().sort((x, y) => ((x.got >= x.total) - (y.got >= y.total)) || (y.got / y.total - x.got / x.total)).slice(0, 6) : [];
+    const rc = rcList().slice(0, 6);
+    const lead = (!dash && rc[0]) ? psGame(rc[0], 'Jump back in', 'game:' + rc[0].id) : '';
+    return (dash ? playing : lead) + (dash ? I('info', 'Close game', 'Quit ' + esc(dash.title), 'closegame', 'red') : '') + (psIn() ? psVoiceCard() : '') + L.slice(0, 3).map(psProg).join('')
+      + I('cam', 'New screenshot', 'Save what is on screen', 'shot', 'amber') + I('film', 'Record screen', 'Start a recording', 'rec', 'red') + I('view', 'Captures', 'Recently created', 'caps', 'purple')
+      + rc.slice(dash ? 0 : 1, dash ? 4 : 5).map((x) => psGame(x, (x.lastPlayed ? 'Played ' + ago(x.lastPlayed) : ''), 'game:' + x.id)).join('')
+      + I('switcher', 'Switch apps', 'See what is open', 'runapps', 'teal');
+  }
+  if (t === 'notifs') { notifUnread = false; return (notifHist.length ? notifHist.slice(0, 12).map((n) => I('bell', esc(n.t), ago(n.at), n.gid ? 'game:' + esc(n.gid) : 'profile', 'blue')).join('') + I('info', 'Clear all', '', 'notif:clear', 'red', 'pc-pilld') : psEmpty('No new notifications')); }
+  if (t === 'friends') return psGameBase();
+  if (t === 'music') { const np = spPlayingNow(); return (np || '') + (np ? '' : I('music', 'Open Spotify', 'Play music in the console', 'openspotify', 'green')); }
+  if (t === 'volume') { const pc = (k, d) => Math.round((settings[k] ?? d) * 100); return psSec('Volume') + psV('speaker', 'Menu sounds', pc('sfxVol', 0.7), 'vol:sfxVol', 'blue') + psV('music', 'Console music', pc('musicVol', 0.3), 'vol:musicVol', 'purple') + psSw('speaker', 'Menu sounds on', settings.sfx !== false, 'tgl:sfx'); }
+  if (t === 'party') return psMic();
+  if (t === 'controller') return I('pad', esc(padName()), (/no controller/i.test(padName()) ? 'Plug in or turn on a controller' : (cbattPct >= 0 ? 'Battery ' + cbattPct + '%' : 'Connected')), 'controller', 'green') + I('apps', 'Button layout', 'Remap every button', 'btns', 'blue') + I('sliders', 'Stick and mouse feel', 'Dead zone and cursor speed', 'sticks', 'teal') + I('info', 'Restore default buttons', 'Undo your remaps', 'resetbtns', 'red');
+  if (t === 'profile') return `<div class="pc-prof"><span class="pc-av">${avatarSpan('md')}</span><span class="pc-tx"><b>${esc(profileName())}</b><small>${games.length} games · online</small></span></div>` + I('apps', 'Trophies', achData && achData.ok ? achData.got + ' of ' + achData.total : 'Your progress', 'ach', 'amber') + I('people', 'Switch user', 'Use another profile', 'switch', 'purple') + I('power', 'Sign out', 'Back to the sign-in screen', 'signout', 'red');
+  if (t === 'capture') return I('cam', 'Screenshot', 'Save the screen', 'shot', 'amber') + I('film', 'Record screen', 'Start recording', 'rec', 'red') + I('view', 'Captures', 'Recently created', 'caps', 'purple');
+  return null;
+}
 function guideBody() {
-  if (guidePage === 'ptjoin') return partyJoinPage();
+  if (guidePage === 'ptjoin') return padKind() === 'ps' ? psJoin() : partyJoinPage();
+  if (padKind() === 'ps') { const r = psBody(); if (r != null) return r; }
   if (guideTab === 'friends') {
     const party = partyInline();
     if (!friendsData) return `<h2 class="gd-h">Friends &amp; party</h2>${party}<p class="gd-t">Looking for your friends\u2026</p>`;
@@ -801,6 +971,9 @@ function guideBody() {
     const pc = d.total ? Math.round(d.got / d.total * 100) : 0;
     return `<h2 class="gd-h">Achievements</h2><div class="gd-ach"><b>${d.got} / ${d.total}</b><small>unlocked \u00b7 ${pc}% \u00b7 ${d.perfect} perfect game${d.perfect === 1 ? '' : 's'}</small><div class="gd-bar"><i style="width:${pc}%"></i></div></div>${gdI('trophy', 'See all achievements', 'data-gd="ach"')}${d.top ? `<p class="gd-t">Closest to done: ${esc(d.top.title)} ${d.top.got}/${d.top.total}</p>` : ''}`;
   }
+  if (guideTab === 'music') { const np = spPlayingNow(); return '<h2 class="gd-h">Music</h2>' + (np || '') + gdI('music', 'Open Spotify', 'data-gd="openspotify"'); }
+  if (guideTab === 'volume') { const pc = (k, d) => Math.round((settings[k] ?? d) * 100) + '%'; return `<h2 class="gd-h">Volume</h2>${spPlayingNow()}${gdI('speaker', 'Menu sounds ' + pc('sfxVol', 0.7), 'data-gd="vol:sfxVol"')}${gdI('music', 'Music ' + pc('musicVol', 0.3), 'data-gd="vol:musicVol"')}${gdI('speaker', settings.sfx === false ? 'Turn menu sounds on' : 'Turn menu sounds off', 'data-gd="tgl:sfx"')}`; }
+  if (guideTab === 'party') return `<h2 class="gd-h">Voice chat</h2>${partyInline()}`;
   if (guideTab === 'home') return `<h2 class="gd-h">Home</h2>${gdI('home', 'Go to Home', 'data-gd="home"')}${gdI('paint', 'Customize Home', 'data-gd="widgets"')}`;
   if (guideTab === 'controller') return `<h2 class="gd-h">Controller</h2><p class="gd-t">${esc(padName())}</p>${gdI('pad', 'Controller', 'data-gd="controller"')}${gdI('apps', 'Button layout', 'data-gd="btns"')}${gdI('sliders', 'Stick and mouse feel', 'data-gd="sticks"')}${gdI(null, 'Restore default buttons', 'data-gd="resetbtns"')}`;
   if (guideTab === 'settings') return `<h2 class="gd-h">Settings</h2>${gdI('gear', 'Open Settings', 'data-gd="settings"')}${gdI('pad', 'Controller', 'data-gd="controller"')}${gdI('paint', 'Customize Home', 'data-gd="widgets"')}${dash ? gdI(null, 'Restore game fullscreen', 'data-gd="resumefix"') : ''}<div class="gd-sep"></div>${gdI(null, 'Add or switch', 'data-gd="switch"')}${gdI(null, 'Sign out', 'data-gd="signout"')}`;
@@ -811,27 +984,56 @@ function guideBody() {
   return `<div class="gd-u"><span class="gd-ur">${avatarSpan('md')}<span class="gd-un"><b>${esc(profileName())}</b><small>${games.length} games</small></span></span></div>
     ${playing}${partyInline()}${spPlayingNow()}${(() => { const rc = rcList().slice(0, 2); return rc.length ? `<div class="gd-pl">Recent games</div>${rc.map(rcRow).join('')}` : ''; })()}<div class="gd-sep"></div>${gdI('home', 'Home', 'data-gd="home"')}${gdI('bars', 'Library', 'data-gd="openlib"')}${gdI('tools', 'Tools', 'data-gd="tools"')}${gdI('monitor', 'Switch apps', 'data-gd="runapps"')}<div class="gd-sep"></div>${gdI('cam', 'Screenshot', 'data-gd="shot"')}${gdI('film', 'Record screen', 'data-gd="rec"')}${gdI('view', 'Captures', 'data-gd="caps"')}<div class="gd-sep"></div>${gdI('power', 'Power', 'data-gd="power"')}`;
 }
+const PS_ACC = { capture: '#ffb648', home: '#5aa0ff', library: '#a78bff', achievements: '#ffb648', friends: '#4fe0a0', music: '#3fd87a', volume: '#3fd8d0', party: '#7a8cff', controller: '#5aa0ff', settings: '#9fb0d0', profile: '#ff7ab8', power: '#ff6b6b' };
+function psHintSet(el) {
+  const gp = document.querySelector('#guide .gd-p'); if (!gp) return; let h = gp.querySelector('.pc-hint');
+  if (!h) { h = document.createElement('div'); h.className = 'pc-hint'; gp.appendChild(h); }
+  if (!el || !gdRow) { h.classList.remove('on'); return; }
+  const X = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8.6 8.6l6.8 6.8M15.4 8.6l-6.8 6.8"/></svg>', O = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 9h10M7 12h10M7 15h10"/></svg>';
+  const menu = document.body.classList.contains('gd-menu'), a = (el.dataset && el.dataset.gd) || '';
+  if (menu) h.innerHTML = (guideTab === 'friends' && guidePage === 'main' ? '<b>L1 / R1</b> Switch Tabs&nbsp;&nbsp;&nbsp;' : '') + O + 'Options';
+  else { const t = a === 'resume' ? 'Resume' : a === 'pt:quick' ? 'Join' : a.startsWith('game:') ? 'Play' : 'Select'; h.innerHTML = X + t; }
+  setTimeout(() => { try { const b = menu ? el.closest('#guide .gd-body') : el, r = b.getBoundingClientRect(); h.style.setProperty('--hx', (menu ? r.left + r.width * (guideTab === 'friends' ? .5 : .72) : r.left + r.width / 2) + 'px'); h.classList.add('on'); } catch {} }, 330);
+}
+function psHead() {
+  const t = guideTab, s = partyState, lab = ((gdTabs().find((x) => x[0] === t)) || [])[2] || '';
+  if (guidePage === 'ptjoin') return ['Join a voice channel', 'Pick where to hang out'];
+  if (guidePage === 'restart') return ['Restart this PC?', 'Windows restarts right away'];
+  if (guidePage === 'off') return ['Turn off this PC?', 'Windows shuts down right away'];
+  const sub = { home: dash ? 'Playing ' + dash.title : 'Welcome back, ' + profileName(), library: games.length + ' games in your library', notifs: notifHist.length ? notifHist.length + ' recent' : 'Nothing new', friends: gbTab === 'parties' ? 'Parties' : 'Friends', music: 'Spotify', volume: 'Spotify, menu sounds and music', party: 'Discord voice', controller: padName(), profile: profileName(), power: 'Sleep, restart or turn off' };
+  return [t === 'profile' ? profileName() : lab, sub[t] || ''];
+}
 function renderGuide(keep, still) {
+  if (psOn() && guideTab === 'party' && !psIn()) guideTab = 'friends';
   const b = document.querySelector('#guide .gd-body'); if (!b) return;
   const st = document.querySelector('#guide .gd-tabs'); if (st) st.innerHTML = gdStrip();
   { const gi = gdTabs().findIndex((t) => t[0] === (guideTab === 'recents' ? 'library' : guideTab)), gp = document.querySelector('#guide .gd-p'); if (gp) gp.style.setProperty('--ti', String(Math.max(0, gi))); }
-  b.innerHTML = guideBody(); applyAvatars(); applyCovers(); if (!still) animateIn('#guide .gd-body > *');
+  if (psOn()) { const gp = document.querySelector('#guide .gd-p'); if (gp) { gp.style.setProperty('--sheet', PS_ACC[guidePage === 'ptjoin' ? 'party' : guideTab] || '#5aa0ff'); let h = gp.querySelector('.pc-hd'); if (!h) { h = document.createElement('div'); h.className = 'pc-hd'; gp.insertBefore(h, gp.querySelector('.gd-tabs')); } const [ht, hs] = psHead(); h.innerHTML = `<i></i><h2>${esc(ht)}</h2><p>${esc(hs)}</p>`; } }
+  if (psOn()) { const menu = guidePage !== 'main' || ['notifs', 'capture', 'friends', 'music', 'volume', 'party', 'controller', 'profile', 'power'].includes(guideTab); document.body.classList.toggle('gd-menu', menu); const cur = document.querySelector('#guide .gd-tb.cur'), gb = document.querySelector('#guide .gd-body'); if (cur && gb) { const r = cur.getBoundingClientRect(); gb.style.setProperty('--mx', (r.left + r.width / 2) + 'px'); gb.dataset.t = psHead()[0]; } }
+  const keepRow = psOn() && gdRow && typeof keep === 'number'; b.innerHTML = guideBody(); if (!keepRow) { b.scrollLeft = 0; b._gt = 0; } gdRow = keepRow; document.body.classList.toggle('gd-row', keepRow); b.querySelectorAll('[data-pct]').forEach((e) => e.style.setProperty('--psv', e.dataset.pct + '%')); b.querySelectorAll('[data-pc]').forEach((e) => e.style.setProperty('--pc', e.dataset.pc));   // set from script (inline style attributes are not always honoured)
+  if (psOn() && guideTab === 'notifs') { const s2 = document.querySelector('#guide .gd-tabs'); if (s2) s2.innerHTML = gdStrip(); }
+  applyAvatars(); applyCovers(); if (!still) animateIn('#guide .gd-body > *');
   const els = [...document.querySelectorAll('#guide .gd-body [data-nav]')];
   const first = els[0];
-  (typeof keep === 'number' && keep >= 0 ? els[Math.min(keep, els.length - 1)] : first || els[0])?.focus({ preventScroll: true });
-  $('#hints').innerHTML = renderHints(guidePage === 'main' && dash ? 'A: Select    Share: Back to the game    LB: Previous    RB: Next' : 'A: Select    B: ' + (guidePage !== 'main' ? 'Back' : 'Close') + '    LB: Previous    RB: Next');
+  if (psOn() && !keepRow) psHintSet(null);
+  if (psOn() && !keepRow) { const c = document.activeElement; if (c && c.blur && c.closest && c.closest('#guide')) c.blur(); }   // the bar is selected, not a card
+  else (typeof keep === 'number' && keep >= 0 ? els[Math.min(keep, els.length - 1)] : first || els[0])?.focus({ preventScroll: true });
+  $('#hints').innerHTML = psOn() ? renderHints(psCust ? 'A: Pick up / Put down    Left / Right: Move    Up: Show or hide    B: Done' : gdRow ? 'A: Select    B: Back    Down: Icon bar' : 'A: Open    B: Close    LB: Previous    RB: Next') : renderHints(guidePage === 'main' && dash ? 'A: Select    Share: Back to the game    LB: Previous    RB: Next' : 'A: Select    B: ' + (guidePage !== 'main' ? 'Back' : 'Close') + '    LB: Previous    RB: Next');
 }
 function openGuide() {
   if (guideOn) return;
+  psCust = false; psGrab = false;
   SND.play('open', (gameMute || dash || document.body.classList.contains('ingame')) ? 0.2 : undefined);   // over a running game the sound is quiet
   closeMenu(true); if (osk) oskClose(null); hideLaunch(true);
-  document.body.classList.add('gd-on'); guideOn = true; guidePage = 'main'; guideTab = 'profile'; guidePrev = (lastReal && document.body.contains(lastReal) && (screen === 'home' || screen === 'library')) ? lastReal : document.activeElement;   // the game you were really on, not where the window focus happened to land
+  document.body.classList.toggle('gd-ps', padKind() === 'ps'); document.body.classList.add('gd-on'); guideOn = true; guidePage = 'main'; guideTab = padKind() === 'ps' ? 'home' : 'profile'; guidePrev = (lastReal && document.body.contains(lastReal) && (screen === 'home' || screen === 'library')) ? lastReal : document.activeElement; try { if (padKind() === 'ps' && document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch {}   // the game you were really on, not where the window focus happened to land
+  document.querySelectorAll('#guide.gd-leaving').forEach((o) => o.remove());
   const g = document.createElement('div'); g.id = 'guide';
-  g.innerHTML = `<div class="gd-dim"></div><div class="gd-p"><div class="gd-sky"></div><div class="gd-tabs"></div><div class="gd-body"></div></div>`;
+  g.innerHTML = `<div class="gd-dim"></div><div class="gd-p"><div class="gd-sky"></div>${padKind() === 'ps' ? psExtras() : ''}<div class="gd-tabs"></div><div class="gd-body"></div></div>`; gdRow = false; document.body.classList.remove('gd-row');
+  if (padKind() === 'ps') { clearInterval(psClockT); psClockT = setInterval(() => { const c = document.querySelector('#guide .gd-clock'); if (!c || !guideOn) return clearInterval(psClockT); c.innerHTML = psClock(); }, 15000); }
   document.getElementById('guide-out')?.remove();
   document.body.appendChild(g);
   setTimeout(() => { try { if (guideOn) { const q = document.querySelector('#guide .gd-p').getBoundingClientRect(); api.guideClip({ l: Math.max(0, q.left), t: Math.max(0, q.top), r: q.right, b: q.bottom }); } } catch {} }, 450);   // keyboard-game menu: the mouse is kept inside the panel
-  renderGuide(); animateIn('#guide .gd-tb'); loadFriends(true); api.partyStart().then((s) => { if (s && !partyState) { partyState = s; if (guideOn && (guideTab === 'friends' || guideTab === 'profile') && guidePage === 'main') renderGuide(undefined, true); } }).catch(() => {});
+  renderGuide(); animateIn('#guide .gd-tb'); loadFriends(true); api.partyStart().then((s) => { if (s && !partyState) { partyState = s; if (guideOn && (guideTab === 'friends' || guideTab === 'profile' || guideTab === 'party') && guidePage === 'main') renderGuide(undefined, true); } }).catch(() => {});
   requestAnimationFrame(() => g.classList.add('on'));
 }
 function closeGuide(silent) {
@@ -840,7 +1042,8 @@ function closeGuide(silent) {
   if (kbOpen) { kbOpen = false; updateLock(); }
   lockHero(0); { const gs = document.getElementById('gamesnap'); if (gs) { gs.classList.remove('on'); } }
   if (!silent && guideOn) SND.play('close');
-  const g = $('#guide'); if (g) { if (silent) g.remove(); else { g.id = 'guide-out'; g.classList.remove('on'); setTimeout(() => g.remove(), 560); } }
+  const g = $('#guide'); if (g) { if (silent) g.remove(); else if (document.body.classList.contains('gd-ps')) { g.classList.remove('on'); g.classList.add('gd-leaving'); g.style.pointerEvents = 'none'; setTimeout(() => g.remove(), 560); } else { g.id = 'guide-out'; g.classList.remove('on'); setTimeout(() => g.remove(), 560); } }
+  setTimeout(() => { if (!guideOn) document.body.classList.remove('gd-ps'); }, silent ? 0 : 600);
   document.body.classList.remove('gd-on'); const was = guideOn; guideOn = false; guidePage = 'main';
   if (!was) return;
   if (screen === 'home' || screen === 'library') { const el0 = guidePrev && document.body.contains(guidePrev) && !guidePrev.closest('#guide') ? guidePrev : null, g0 = el0 && gameOf(el0); if (g0) { try { setHero(g0, true); } catch {} } }   // the logo matches the game you were on the very moment the menu closes
@@ -851,17 +1054,20 @@ function openSignIn() {   // Add or switch / Sign out: the same profile page you
   document.body.classList.add('intro-on'); try { appMidnight(false); } catch {}
   introOn = true; introStage = 1; introLast = Date.now(); introEnd = Date.now();
   const el = $('#intro'); el.className = 'press-on'; el.hidden = false; void el.offsetWidth;
-  signRender();
+  signRender(); try { window.__signDirect = true; signBg(true); } catch {}
 }
 function guideTabStep(dir) {
+  if (psOn() && gdRow && guideTab === 'friends' && guidePage === 'main') return psGbToggle();
   const GT = gdTabs(), i = GT.findIndex((t) => t[0] === guideTab);
-  guideTab = GT[(i + dir + GT.length) % GT.length][0]; guidePage = 'main'; renderGuide();
-  const first = document.querySelector('#guide .gd-body [data-nav]'); if (first) first.focus({ preventScroll: true });
+  guideTab = GT[(i + dir + GT.length) % GT.length][0]; guidePage = guideTab === 'power' ? 'power' : 'main'; renderGuide();
+  const first = document.querySelector('#guide .gd-body [data-nav]'); if (first && !psOn()) first.focus({ preventScroll: true });
 }
 async function guideAct(a) {
   if (a.startsWith('npc:')) return npAct(a.slice(4));
   if (a.startsWith('npplay:')) { await spPlay({ uris: [a.slice(7)] }); setTimeout(npPoll, 900); return; }
   if (a.startsWith('vol:')) { const k = a.slice(4); const cur = Math.round((settings[k] ?? (k === 'sfxVol' ? 0.7 : 0.3)) * 10); setLocal({ [k]: ((cur + 1) % 11) / 10 }); SND.play('select'); return renderGuide(undefined, true); }
+  if (a === 'pscust') return psCustToggle();
+  if (a === 'notif:clear') { notifHist = []; return renderGuide(undefined, true); }
   if (a === 'tgl:sfx') { setLocal({ sfx: settings.sfx === false }); if (settings.sfx !== false) SND.play('on'); return renderGuide(undefined, true); }
   if (a === 'tgl:music') { setLocal({ music: settings.music === false }); SND.unlock(); return renderGuide(undefined, true); }
   if (a === 'fr:off') { frOff = !frOff; return renderGuide(undefined, true); }
@@ -888,6 +1094,7 @@ async function guideAct(a) {
     case 'home': case 'controller': case 'settings': case 'widgets': return go(a);
     case 'search': closeGuide(true); return padSearch();
     case 'openapps': closeGuide(true); return show('apps');
+    case 'openspotify': { const sp = (settings.webApps || []).find((y) => /^spotify$/i.test(String(y.name).trim())); closeGuide(true); return sp ? openApp(sp.id) : show('apps'); }
     case 'ach': closeGuide(true); return show('ach');
     case 'news': closeGuide(true); return show('news');
     case 'openlib': closeGuide(true); return api.libGet().then((g) => { games = g; show('library'); });
@@ -906,7 +1113,7 @@ async function guideAct(a) {
     case 'pback': guidePage = 'main'; return renderGuide();
     case 'poback': guidePage = 'power'; return renderGuide();
     case 'exit': return quitConsole();
-    case 'shutdown': return api.shutdown();
+    case 'shutdown': try { SND.play('poweroff', 1); } catch {} return api.shutdown();
     case 'sleep': return api.sleep();
     case 'restart': guidePage = 'restart'; return renderGuide();
     case 'dorestart': return api.restart();
@@ -1019,7 +1226,8 @@ function loadAchArt() {   // the real Steam cover for the games that are not in 
   const need = (achData.list || []).map((a) => String(a.appid)).filter((id) => !achGameOf(id) && !achArtMap.has(id)); if (!need.length) return;
   achArtBusy = true; api.achArt(need).then((r) => { for (const id of need) achArtMap.set(id, (r && r[id]) || ''); }).catch(() => {}).finally(() => { achArtBusy = false; applyAchBg(); });
 }
-function applyAchBg() { document.querySelectorAll('[data-ab]').forEach((el) => { const u = achCoverUrl(el.dataset.ab); if (u && el.dataset.abu !== u) { el.dataset.abu = u; el.style.backgroundImage = `url("${u}")`; el.classList.add('has'); } }); }
+function applyAchBg() { document.querySelectorAll('[data-ab]').forEach((el) => { const u = achCoverUrl(el.dataset.ab); if (u && el.dataset.abu !== u) { el.dataset.abu = u; el.style.backgroundImage = `url("${u}")`; el.classList.add('has'); if (el.parentElement && el.parentElement.classList.contains('avart')) el.parentElement.style.setProperty('--cov', `url("${u}")`); } }); }
+const achView = (l) => (l || []).slice().sort((x, y) => (y.a ? 1 : 0) - (x.a ? 1 : 0) || (x.a ? (y.t || 0) - (x.t || 0) : (y.p >= 0 ? y.p : -1) - (x.p >= 0 ? x.p : -1)));
 const rarity = (p) => p < 0 ? '' : p < 5 ? 'Ultra rare' : p < 15 ? 'Rare' : p < 40 ? 'Uncommon' : 'Common';
 SCREENS.ach = {
   focus: '.avc',
@@ -1034,12 +1242,11 @@ SCREENS.ach = {
     const pc = d.total ? Math.round(d.got / d.total * 100) : 0, nf = (n) => Number(n).toLocaleString();
     const rank = pc < 10 ? 'Rookie' : pc < 25 ? 'Challenger' : pc < 50 ? 'Veteran' : pc < 75 ? 'Elite' : 'Legend';
     const card = (a) => { const p = Math.round(a.got / a.total * 100); return `<button class="xt avc${p >= 100 ? ' done' : ''}" data-nav data-ach="${a.i}"><span class="avart"><i class="acov" data-ab="${esc(a.appid)}"></i>${p >= 100 ? '<b class="avperf">Perfect</b>' : ''}<em class="avpct">${p >= 100 ? '✓' : p + '%'}</em></span><span class="avcap"><b>${esc(a.title)}</b><small>${a.got} of ${a.total}${p < 100 ? ` · ${a.total - a.got} to go` : ' · complete'}</small><i class="achbar"><u data-w="${p}"></u></i></span></button>`; };
-    const groups = [['Completed', 'every achievement unlocked', (a) => a.got >= a.total], ['Almost there', 'over halfway', (a) => a.got < a.total && a.got / a.total >= 0.5], ['Keep going', 'plenty still to find', (a) => a.got / a.total < 0.5]];
-    const sec = groups.map(([t, sub, f]) => { const l = d.list.filter(f).sort((x, y) => (y.got / y.total) - (x.got / x.total)); return l.length ? `<h2 class="agh"><b>${t}</b><span>${sub}</span><em>${l.length}</em></h2>${l.map(card).join('')}` : ''; }).join('');
+    const sec = d.list.slice().sort((x, y) => (y.got / y.total) - (x.got / x.total) || y.total - x.total).map(card).join('');
     const trophy = '<svg class="atro" viewBox="0 0 24 24"><path d="M7 3h10v5a5 5 0 0 1-10 0V3Zm-3 1h3v2H5v1a3 3 0 0 0 2.4 2.9l.4 1.9A5 5 0 0 1 3 7V4h1Zm16 0h1v3a5 5 0 0 1-4.8 4.8l.4-1.9A3 3 0 0 0 19 7V6h-2V4h3ZM11 14h2v3h3v2H8v-2h3v-3Z" fill="currentColor"/></svg>';
     const tile = (n, l) => `<div class="avt"><b>${n}</b><small>${l}</small></div>`;
     return `<div class="achpg v2 v3"><div class="ahd"><div class="aringbig">${ring(pc, 'big')}<b>${pc}<small>%</small></b></div><div class="ahl"><span class="akick">${trophy}${rank}</span><h1>Achievements</h1><p class="apsub">${nf(d.got)} of ${nf(d.total)} unlocked across ${d.games} game${d.games === 1 ? '' : 's'}</p></div><div class="avstats">${tile(nf(d.got), 'unlocked')}${tile(nf(d.total - d.got), 'to go')}${tile(d.perfect, 'perfect')}</div></div>
-      <div class="ascr"><div class="avgrid">${sec || '<p class="apsub">None of your library games have achievements yet.</p>'}</div></div></div>`;
+      <div class="ascr" data-aclip="${(setTimeout(() => { const q = document.querySelector('.ascr'); if (q) achFit(q); }, 60), '')}"><div class="avgrid">${sec || '<p class="apsub">None of your library games have achievements yet.</p>'}</div></div></div>`;
   },
 };
 SCREENS.achgame = {
@@ -1051,7 +1258,7 @@ SCREENS.achgame = {
       : achView(d.list).map((a) => { const r = a.a ? '' : rarity(a.p), rr = rarity(a.p); return `<div class="aitem${a.a ? ' got' : ''}" data-nav tabindex="0"><i class="abadge${a.i ? '' : ' none'}">${a.i ? `<img src="${a.i}" alt="" draggable="false">` : (a.a ? '✓' : '')}</i><span class="ait"><b>${esc(a.n)}</b><small>${esc(a.d || (a.a ? '' : 'Hidden achievement'))}</small></span><span class="aside">${a.a && a.t ? `<em>${new Date(a.t * 1000).toLocaleDateString()}</em>` : '<em>Locked</em>'}${a.p >= 0 ? `<small class="rar rz${a.p < 5 ? 3 : a.p < 15 ? 2 : a.p < 40 ? 1 : 0}">${rr} · ${a.p < 10 ? a.p.toFixed(1) : Math.round(a.p)}%</small>` : ''}</span></div>`; }).join('');
 const top = d && d.ok ? d.list.filter((x) => x.a && x.p >= 0 && x.i).sort((x, y) => x.p - y.p).slice(0, 4) : [];
     const strip = top.length ? `<div class="arare"><small>Rarest unlocked</small><div>${top.map((x) => `<i class="abadge big" title="${esc(x.n)}"><img src="${x.i}" alt="" draggable="false"></i>`).join('')}</div></div>` : '';
-    return `<div class="achpg v2 v3"><div class="ahd ahero"><i class="acov big" data-ab="${esc(c.appid || '')}"></i><div class="ahl"><h1>${esc(c.title || 'Achievements')}</h1><p class="apsub">${c.got} of ${c.total} unlocked · ${p}%</p><i class="achbar wide"><u data-w="${p}"></u></i></div>${strip}<div class="aringbig sm">${ring(p, 'big')}<b>${p}<small>%</small></b></div></div><div class="ascr"><div class="agrid one">${body}</div></div></div>`;
+    return `<div class="achpg v2 v3"><div class="ahd ahero"><span class="avart hero"><i class="acov" data-ab="${esc(c.appid || '')}"></i></span><div class="ahl"><h1>${esc(c.title || 'Achievements')}</h1><p class="apsub">${c.got} of ${c.total} unlocked · ${p}%</p><i class="achbar wide"><u data-w="${p}"></u></i></div>${strip}<div class="aringbig sm">${ring(p, 'big')}<b>${p}<small>%</small></b></div></div><div class="ascr"><div class="agrid one">${body}</div></div></div>`;
   },
 };
 
@@ -1557,7 +1764,24 @@ async function refreshRun() {   // while a game is running, its Play button says
   g.needsUpdate = false;
   b.dataset.gact = on ? 'resume' : 'play'; if (sp) sp.textContent = on ? 'Running now' : 'Play';
 }
-setInterval(() => { if (screen === 'game') refreshRun(); }, 6000);   // keeps Update / Updating % on the game page current
+setInterval(() => { if (screen === 'game') refreshRun(); }, 6000);
+const updKnown = new Map();   // game id -> 'need' | 'busy' | 'ok': what the last check said, so each change is announced once
+async function updWatch() {   // Steam and Epic games: tell me in the notifications (and with a message) when one needs an update, and when it is ready again
+  try {
+    if (introOn || launching || runTitle) return;
+    for (const g of games.slice()) {
+      if (!g || g.installed === false || !(g.steamId || g.source === 'Epic Games')) continue;
+      let u = null; try { u = await api.gameUpdInfo(g.id); } catch {} if (!u) continue;
+      const now = u.needsUpdate ? (u.updating ? 'busy' : 'need') : 'ok', was = updKnown.get(g.id);
+      updKnown.set(g.id, now);
+      if (now === 'need' && was !== 'need') note('Update needed: ' + g.title, g.id);
+      else if (now === 'ok' && (was === 'need' || was === 'busy')) note(g.title + ' is up to date. Ready to play.', g.id);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  } catch {}
+}
+setTimeout(updWatch, 25000); setInterval(updWatch, 300000);
+   // keeps Update / Updating % on the game page current
 const fmtEta = (s) => (s == null ? 'working out the time left' : s < 60 ? 'less than a minute left' : s < 3600 ? Math.round(s / 60) + ' min left' : Math.floor(s / 3600) + ' h ' + Math.round((s % 3600) / 60) + ' min left');
 let instBusy = false;
 async function instTick() {   // while a game page shows a game that is not installed: follow its install, then turn the button into Play
@@ -1577,7 +1801,7 @@ async function instTick() {   // while a game page shows a game that is not inst
       if (info) info.textContent = r.state === 'waiting' ? 'Confirm the install in the launcher window' : (r.total ? (r.approx ? '\u2248 ' : '') + Math.floor(pct) + '%  \u00b7  ' + fmtEta(r.eta) : (r.done / 1073741824).toFixed(1) + ' GB downloaded');
       if (isNew) { glowR = null; glowKick(900); }   // the text line shifts the page up; the white outline follows the button again
     } else if (r.state === 'done') {
-      games = await api.libScan(); note(g.title + ' is installed. Ready to play.'); show('game', 0);
+      games = await api.libScan(); note(g.title + ' is installed. Ready to play.', g.id); show('game', 0);
       setTimeout(() => { const pb = document.querySelector('.gxplayb'); if (pb && screen === 'game') pb.focus({ preventScroll: true }); glowR = null; glowKick(1200); }, 150);
     } else if (b.classList.contains('gxinst')) {
       b.classList.remove('gxinst'); b.dataset.gact = 'install'; b.style.removeProperty('--p'); const sp = b.querySelector('span'); if (sp) sp.textContent = 'Install'; if (info) { info.remove(); glowR = null; glowKick(900); }
@@ -1745,8 +1969,8 @@ SCREENS.profile = {
     ${settings.avatarFile ? '<button class="item" data-nav data-act="pavatarrm"><span>Remove picture</span><span></span></button>' : ''}
     <button class="item" data-nav data-go="home"><span>Back</span><span></span></button></div>`,
 };
-async function pickIntroVideo() { const i = focusIdx(), r = await api.introVideoPick(); if (r && r.settings) { settings = r.settings; applySettings(); show('settings', i); note('Startup video set. It plays next time the console starts.'); } else if (r && r.error) note(r.error); }
-async function clearIntroVideo() { const i = focusIdx(); settings = await api.introVideoClear(); show('settings', i); note('Startup video removed.'); }
+async function pickIntroVideo(kind) { const i = focusIdx(); if (kind === 'bg') note('Pick your video. A long file takes a minute to copy.'); const r = await api.introVideoPick(kind); if (r && r.settings) { settings = r.settings; applySettings(); show('settings', i); note(kind === 'bg' ? 'Sign-in background set. It plays on the sign-in page next time the console starts.' : 'Startup video set. It plays next time the console starts.'); } else if (r && r.error) note(r.error); }
+async function clearIntroVideo(kind) { const i = focusIdx(); settings = await api.introVideoClear(kind); show('settings', i); note('Startup video removed.'); }
 async function editName() { const i = focusIdx(); const t = await openOsk('Your name', profileName(), { done: 'Save' }); if (t) { setLocal({ profileName: t.slice(0, 24) }); show(screen, screen === 'settings' ? i : 0); } }
 
 /* ---------- built-in gamerpics (like a real console's profile picture list): drawn here, nothing to download ---------- */
@@ -2109,6 +2333,13 @@ function resumeSmooth(fix) {   // going back to the game: the console fades out 
   return new Promise((res) => setTimeout(() => res(window.consoleApi.gameResume(!!fix)), 260));
 }
 function quietMedia() { document.querySelectorAll('video,audio').forEach((m) => { try { m.muted = true; m.pause(); } catch {} }); }
+/* while the PlayStation Control Center is up, nothing outside it can be focused, clicked or pressed (like the Xbox menu) */
+{
+  const outside = (e) => guideOn && psOn() && !osk && !menu && e.target && e.target.nodeType === 1 && !e.target.closest('#guide');
+  ['click', 'dblclick', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'auxclick', 'contextmenu', 'touchstart'].forEach((t) => document.addEventListener(t, (e) => { if (outside(e)) { e.stopImmediatePropagation(); e.preventDefault(); } }, true));
+  document.addEventListener('keydown', (e) => { if (outside(e) && /^(Enter|Space| |ArrowUp|ArrowDown|ArrowLeft|ArrowRight)$/.test(e.key === ' ' ? ' ' : e.key)) e.preventDefault(); }, true);
+  document.addEventListener('focusin', (e) => { if (outside(e)) { try { e.target.blur(); } catch {} } }, true);
+}
 document.addEventListener('play', (e) => { try { if (guideOn && dash && e.target && /^(VIDEO|AUDIO)$/.test(e.target.tagName)) { e.target.muted = true; e.target.pause(); } } catch {} }, true);   // the game's menu over a running game: no trailer or music starts behind it
 function silenceAll(on) {   // while a game starts or runs the console does nothing at all (no sound, no video, no animation) so the game gets everything
   on = !!on; if (on === gameMute) return;
@@ -2142,7 +2373,18 @@ function trimLogo(src, crop) {   // every logo is cut down to the real lettering
     const im = new Image();
     im.onload = () => {
       try {
-        const w = im.naturalWidth, h = im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h;
+        const w = im.naturalWidth, h = im.naturalHeight;
+        if (!crop && w > 360) {   // v1072: the lettering is found on a small copy (about 25 times less work), then cut from the full picture, so a logo is ready in a few milliseconds
+          const s = 320 / w, sw0 = 320, sh0 = Math.max(1, Math.round(h * s)), c0 = document.createElement('canvas'); c0.width = sw0; c0.height = sh0;
+          const x0c = c0.getContext('2d', { willReadFrequently: true }); x0c.drawImage(im, 0, 0, sw0, sh0); const d0 = x0c.getImageData(0, 0, sw0, sh0).data;
+          let a0 = sw0, a1 = -1, b0 = sh0, b1 = -1;
+          for (let cy = 0; cy < sh0; cy++) for (let cx = 0; cx < sw0; cx++) { if (d0[(cy * sw0 + cx) * 4 + 3] > 20) { if (cx < a0) a0 = cx; if (cx > a1) a1 = cx; if (cy < b0) b0 = cy; if (cy > b1) b1 = cy; } }
+          if (a1 < 0) return done({ u: src });
+          const sx = Math.max(0, Math.floor(a0 / s) - 3), sy = Math.max(0, Math.floor(b0 / s) - 3), ex = Math.min(w, Math.ceil((a1 + 1) / s) + 3), ey = Math.min(h, Math.ceil((b1 + 1) / s) + 3);
+          const o0 = document.createElement('canvas'); o0.width = ex - sx; o0.height = ey - sy; o0.getContext('2d').drawImage(im, sx, sy, ex - sx, ey - sy, 0, 0, ex - sx, ey - sy);
+          return done({ u: o0.toDataURL('image/png') });
+        }
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
         const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, w, h).data;
         let lim = w;
         if (crop) {   // this logo's file says "Overwatch 2": the orange "2" at the right is dropped
@@ -2307,7 +2549,8 @@ function setHero(g, force) {   // the background crossfades to the theme of the 
   const tf = typeof g.trailer === 'string' && TRAILER_OK.test(g.trailer) ? g.trailer : '';
   hv.style.transition = 'none'; hv.classList.remove('on'); void hv.offsetWidth; hv.style.transition = ''; clearTimeout(hv._t);
   if (tf && !introOn && !(document.body.classList.contains('is-home') && !document.body.classList.contains('lib'))) { hv._t = setTimeout(() => { if (t !== heroTok || gameMute) return; hv.onplaying = () => { if (t === heroTok) hv.classList.add('on'); }; hv.src = 'ctheme://img/' + tf; hv.play().catch(() => {}); }, Math.max(700, holdTr - Date.now())); } else { hv.pause(); hv.removeAttribute('src'); }
-  titleGhost($('#hero .hg')); titleGhost($('#hero .pc'));
+  titleGhost($('#hero .pc'));   // v1070: the game name is swapped the same frame, with no fading copy of the last name left on top of the new one
+  { document.querySelectorAll('#hero .hg.hgx').forEach((x) => x.remove()); }
   let hg = $('#hero .hg'); if (!hg) { hg = document.createElement('div'); hg.className = 'hg'; $('#hero').appendChild(hg); }
   const CROP2 = new Set(['2357570']);   // Steam's logo for this one says "Overwatch 2": we trim the "2" off the real logo
   const lsrc = logoMap.has(g.id) ? 'ctheme://img/' + logoMap.get(g.id) : '', crop = lsrc && CROP2.has(String(g.steamId));
@@ -2353,7 +2596,7 @@ async function setAppHero(id) {   // focus on one of your apps: the background b
   const t = ++heroTok, file = appArt.get(id) || '', A = $('#hero .a'), B = $('#hero .b'), on = heroFlip ? A : B, off = heroFlip ? B : A;
   heroFlip = !heroFlip;
   const hv = $('#hero .hv'); if (hv) { clearTimeout(hv._t); hv.classList.remove('on'); try { hv.pause(); } catch {} }
-  const hg = $('#hero .hg'), pc = $('#hero .pc'); titleGhost(hg); titleGhost(pc);
+  const hg = $('#hero .hg'), pc = $('#hero .pc'); titleGhost(pc); document.querySelectorAll('#hero .hg.hgx').forEach((x) => x.remove());
   if (hg) { clearTimeout(hg._t); hg.style.transition = 'none'; hg.classList.remove('on'); hg.textContent = ''; hg.classList.remove('tx'); hg.style.backgroundImage = 'none'; void hg.offsetWidth; hg.style.transition = ''; }
   if (pc) { pc.style.transition = 'none'; pc.classList.remove('on'); }
   let col = /^#[0-9a-f]{6}$/i.test(a.color || '') ? [parseInt(a.color.slice(1, 3), 16), parseInt(a.color.slice(3, 5), 16), parseInt(a.color.slice(5, 7), 16)] : null;
@@ -2541,7 +2784,7 @@ function show(name, focusIndex = 0) {
 /* ---------- the glowing highlight: one soft white frame that glides to whatever is selected ---------- */
 const glow = document.createElement('div'); glow.id = 'glow'; document.body.appendChild(glow);
 let glowV = { x: 0, y: 0, w: 0, h: 0 }, glowR = null, glowUntil = 0, glowRun = false, glowT = null;
-function glowTarget() { const a = document.activeElement; return !introOn && !launching && a && a.matches && a.matches('[data-nav]') && document.body.contains(a) && !a.closest('#menu') ? a : null; }
+function glowTarget() { const a = document.activeElement; return !introOn && !launching && a && a.matches && a.matches('[data-nav]') && document.body.contains(a) && !a.closest('#menu') && !(psOn() && !gdRow && a.closest('#guide')) ? a : null; }
 let glowLast = 0;
 function glowTick(now = performance.now()) {
   document.body.classList.toggle('glowing', !introOn);
@@ -2555,7 +2798,7 @@ function glowTick(now = performance.now()) {
   if (t !== glowT) { glowT = t; try { glow.style.borderRadius = getComputedStyle(t).borderRadius; } catch {} }
   glow.style.transform = `translate3d(${glowR.x}px, ${glowR.y}px, 0)`; glow.style.width = glowR.w + 'px'; glow.style.height = glowR.h + 'px';
   { let L = Math.max(0, -glowR.x), R = Math.max(0, glowR.x + glowR.w - innerWidth); const bx = t.closest('.r1, .r2, .hrow, .hscroll'); if (bx) { const cb = bx.getBoundingClientRect(); L = Math.max(L, cb.left - glowR.x); R = Math.max(R, glowR.x + glowR.w - cb.right); }
-    let T = 0, B = 0; const gx = t.closest('.lgrid, .grid, .agrid'); if (gx) { const cb = gx.getBoundingClientRect(); T = Math.max(0, cb.top - glowR.y); B = Math.max(0, glowR.y + glowR.h - cb.bottom); }   // the frame is cut at the grid's edge, so it never floats over the top bar or the Library label while the grid scrolls
+    let T = 0, B = 0; const gx = t.closest('.lgrid, .grid, .agrid, .ascr'); if (gx) { const cb = gx.getBoundingClientRect(), ex = gx.classList.contains('ascr') ? 12 : 0; T = Math.max(0, cb.top - ex - glowR.y); B = Math.max(0, glowR.y + glowR.h - (cb.bottom + ex)); }   // the frame is cut at the grid's edge, so it never floats over the top bar or the Library label while the grid scrolls
     glow.style.clipPath = (L > 0.5 || R > 0.5 || T > 0.5 || B > 0.5) ? `inset(${T}px ${Math.max(0, R)}px ${B}px ${Math.max(0, L)}px)` : 'none'; if (L + R >= glowR.w - 1 || T + B >= glowR.h - 1) glow.style.opacity = '0'; else glow.style.opacity = ''; }   // never draw the frame outside the row or off the screen
   glow.classList.add('on');
   if (Math.abs(tg.x - glowR.x) + Math.abs(tg.y - glowR.y) + Math.abs(tg.w - glowR.w) + Math.abs(tg.h - glowR.h) < 0.6 && performance.now() > glowUntil) { glowRun = false; glowLast = 0; return; }
@@ -2612,6 +2855,10 @@ function ghostOut(main, name) {   // the old screen fades away while the new one
 let shown = false;
 let introEnd = 0;
 function activate(el) {
+  if (signPressWait) return;
+  if (guideOn && psOn() && psCust) { psGrab = !psGrab; SND.play('select'); renderGuide(); return; }
+  if (guideOn && psOn() && !gdRow) { if (guideTab === 'home') { guideAct('home'); return; } psEnterRow(); return; }   // on the icon row A opens the tab, never the page behind the menu
+  if (guideOn && psOn() && el && !(el.closest && el.closest('#guide'))) return;   // nothing outside the menu can be pressed while it is up
   if (el && el.dataset && el.dataset.rm !== undefined && rm !== null) { SND.play('select'); rmAct(); return; }
   if (el && el.dataset && el.dataset.pc !== undefined && pc) { SND.play('select'); pcAct(el); return; }   // the profile creation page always answers A
   if (el && !(el.closest && el.closest('#osk'))) SND.play('select');
@@ -2700,6 +2947,11 @@ function activate(el) {
   else if (el.dataset.act === 'music') { setLocal({ music: settings.music === false }); SND.unlock(); }
   else if (el.dataset.act === 'introvideo') pickIntroVideo();
   else if (el.dataset.act === 'introvideorm') clearIntroVideo();
+  else if (el.dataset.act === 'signbg') pickIntroVideo('bg');
+  else if (el.dataset.act === 'signbgrm') clearIntroVideo('bg');
+  else if (el.dataset.act === 'introvideops') pickIntroVideo('ps');
+  else if (el.dataset.act === 'introvideopsrm') clearIntroVideo('ps');
+  else if (el.dataset.act === 'padtype') { const i = focusIdx(), o = ['auto', 'xbox', 'ps'], n = o[(o.indexOf(settings.padType || 'auto') + 1) % 3]; setLocal({ padType: n }); setPadKind(); SND.play('select'); show('settings', i); }
   else if (el.dataset.act === 'pname') editName();
   else if (el.dataset.act === 'pavatar') { avFrom = screen === 'settings' ? 'settings' : 'profile'; show('avatars'); }
   else if (el.dataset.act === 'avown') pickAvatar();
@@ -2782,22 +3034,34 @@ function focusEl(el) {   // smooth scrolling keeps the selected item in view (in
   const sp = el.closest('.spmain, .sprail, .storepg, .gpage, .ascr, .achpg'); if (sp) { const cr = sp.getBoundingClientRect(), r = el.getBoundingClientRect(), m = cr.height * (sp.classList.contains('spmain') || sp.classList.contains('sprail') ? .05 : .18); if (r.top < cr.top + m) glideTo(sp, null, sp.scrollTop + r.top - cr.top - m, 140); else if (r.bottom > cr.bottom - m) glideTo(sp, null, sp.scrollTop + r.bottom - cr.bottom + m, 140); return; }
   el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: settings.motion && !fast ? 'smooth' : 'auto' });
 }
-function achMove(cur, dir) {   // the achievement shelves move by exact rows and columns and scroll just enough to keep the card comfortably in view
-  const sc = document.querySelector('.ascr'), items = [...document.querySelectorAll('.avc')];
-  if (!sc || !cur || !items.includes(cur)) return false;
-  const rc = items.map((e) => { const r = e.getBoundingClientRect(); return { e, x: r.left + r.width / 2, y: Math.round((sc.scrollTop + r.top) / 80) }; });   // 80px buckets: a focused card lifts a few pixels, which must not count as another row
-  const me = rc.find((q) => q.e === cur), rows = [...new Set(rc.map((q) => q.y))].sort((a, b) => a - b), ri = rows.indexOf(me.y);
-  const inRow = (i) => rc.filter((q) => q.y === rows[i]).sort((a, b) => a.x - b.x);
-  let t = null;
-  if (dir === 'left' || dir === 'right') { const row = inRow(ri), k = row.indexOf(me); t = row[k + (dir === 'right' ? 1 : -1)]; }
-  else { const j = ri + (dir === 'down' ? 1 : -1); if (j >= 0 && j < rows.length) t = inRow(j).reduce((b, q) => (!b || Math.abs(q.x - me.x) < Math.abs(b.x - me.x) ? q : b), null); }
-  if (!t) return true;
-  const el = t.e; el.focus({ preventScroll: true });
-  const cr = sc.getBoundingClientRect(), r = el.getBoundingClientRect(), prev = el.previousElementSibling;
-  const st0 = (glMap.get(sc) || {}).ty, cur0 = st0 != null ? st0 : sc.scrollTop;      // where the scroller is heading, not where it is mid-glide
-  const absTop = sc.scrollTop + (prev && prev.classList.contains('agh') ? prev.getBoundingClientRect().top : r.top) - cr.top, absBot = sc.scrollTop + r.bottom - cr.top;
-  const pad = 22, vh = sc.clientHeight;
-  if (absTop < cur0 + pad || absBot > cur0 + vh - pad) glideTo(sc, null, Math.max(0, absTop - pad - 20), 170);
+const achPitch = (sc) => { const it = [...sc.querySelectorAll('.avc')]; if (it.length < 2) return 0; const t0 = it[0].offsetTop, n = it.find((x) => x.offsetTop > t0 + 2); return n ? n.offsetTop - t0 : 0; };
+function achFit(sc) {   // the list is exactly as tall as the whole rows that fit, so no row is ever half-cut at the top or bottom
+  try {
+    sc.style.flex = '1 1 0'; sc.style.height = '';
+    const pitch = achPitch(sc), it = sc.querySelector('.avc'); if (!pitch || !it) return;
+    const gap = pitch - it.offsetHeight, pad = parseFloat(getComputedStyle(sc).paddingTop) + parseFloat(getComputedStyle(sc).paddingBottom);
+    const rows = Math.max(1, Math.floor((sc.clientHeight - pad + gap) / pitch));
+    sc.style.flex = '0 0 auto'; sc.style.height = Math.round(rows * pitch - gap + pad) + 'px';
+    sc.scrollTop = Math.round(sc.scrollTop / pitch) * pitch;
+  } catch {}
+}
+function achMove(cur, dir) {   // exact rows and columns; the list scrolls by whole rows
+  const sc = document.querySelector('.ascr'), g = sc && sc.querySelector('.avgrid'), items = [...document.querySelectorAll('.avc')];
+  const i = items.indexOf(cur); if (!sc || !g || i < 0) return false;
+  const cols = Math.max(1, getComputedStyle(g).gridTemplateColumns.split(' ').length), lastRow = Math.floor((items.length - 1) / cols);
+  let n = i;
+  if (dir === 'left') n = i % cols ? i - 1 : i;
+  else if (dir === 'right') n = i % cols !== cols - 1 && i + 1 < items.length ? i + 1 : i;
+  else if (dir === 'up') n = i >= cols ? i - cols : i;
+  else n = i + cols < items.length ? i + cols : Math.floor(i / cols) < lastRow ? items.length - 1 : i;
+  if (n === i) return true;
+  items[n].focus({ preventScroll: true });
+  const pitch = achPitch(sc); if (!pitch) return true;
+  const st0 = (glMap.get(sc) || {}).ty, cur0 = st0 != null ? st0 : sc.scrollTop, padT = parseFloat(getComputedStyle(sc).paddingTop) || 0;
+  const vis = Math.max(1, Math.round((sc.clientHeight - padT) / pitch)), curTop = Math.round(cur0 / pitch), row = Math.floor(n / cols);
+  let top = curTop; if (row < curTop) top = row; else if (row > curTop + vis - 1) top = row - vis + 1;
+  top = Math.max(0, Math.min(Math.max(0, lastRow + 1 - vis), top));
+  if (top !== curTop) glideTo(sc, null, top * pitch, 170);
   return true;
 }
 function libMove(cur, dir) {   // the cover grid moves by exact rows and columns, so a press never lands on the wrong cover
@@ -2888,7 +3152,28 @@ function tab(dir) {
   if (screen === 'binds') { const i = BIND_TABS.findIndex((t) => t[0] === bindTabK); bindTabK = BIND_TABS[(i + dir + BIND_TABS.length) % BIND_TABS.length][0]; show('binds'); const f = document.querySelector('[data-nav]'); if (f) f.focus({ preventScroll: true }); }
 }
 function move(dir) {
-  if (guideOn && (dir === 'left' || dir === 'right') && document.activeElement && document.activeElement.id === 'gvol') return npVol(dir === 'right' ? 1 : -1);   // on the Volume row the stick/D-pad left and right change the volume
+  if (signPressWait) return;   // the start screen waits for the PS button: nothing moves behind it
+  if (guideOn && (dir === 'left' || dir === 'right') && document.activeElement && document.activeElement.id === 'gvol') return npVol(dir === 'right' ? 1 : -1);
+  if (guideOn && !osk && !menu && document.body.classList.contains('gd-ps')) {   // the Control Center: on the icon bar left/right change icon and up goes to the cards; on the cards left/right move between them and down returns to the bar
+    if (psCust) { if (dir === 'left' || dir === 'right') { if (psGrab) psMoveTab(dir === 'right' ? 1 : -1); else { SND.play('tab'); guideTabStep(dir === 'right' ? 1 : -1); } } else if (dir === 'up') psToggleHide(); return; }
+    if (!gdRow) { if (dir === 'left' || dir === 'right') { SND.play('tab'); return guideTabStep(dir === 'right' ? 1 : -1); } return; }
+    if ((dir === 'left' || dir === 'right') && document.activeElement && document.activeElement.closest && document.activeElement.closest('.pc-vbar')) {   // the small mute / deafen / share buttons sit in a row
+      const row = [...document.querySelectorAll('#guide .pc-vbar .pc-vb')], i = row.indexOf(document.activeElement), j = i + (dir === 'right' ? 1 : -1);
+      if (i >= 0 && j >= 0 && j < row.length) { row[j].focus({ preventScroll: true }); SND.play('move'); }
+      return;
+    }
+    if ((dir === 'left' || dir === 'right') && guideTab === 'friends' && guidePage === 'main' && document.body.classList.contains('gd-menu')) { psGbToggle(); return; }
+    if ((dir === 'left' || dir === 'right') && document.body.classList.contains('gd-menu') && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.gd-np'))) return;
+    if (dir === 'up' || dir === 'down') {   // inside a card (the Spotify card has buttons above its volume row) move to the control above/below first; only when there is none does down go back to the bar
+      const c0 = document.activeElement, all = [...document.querySelectorAll('#guide .gd-body [data-nav]')];
+      if (c0 && all.includes(c0)) {
+        const r = c0.getBoundingClientRect(); let best = null, bs = 1e9;
+        for (const e of all) { if (e === c0) continue; const q = e.getBoundingClientRect(), dy = (q.top + q.height / 2) - (r.top + r.height / 2), dx = (q.left + q.width / 2) - (r.left + r.width / 2); if ((dir === 'down' ? dy : -dy) < r.height * .4) continue; const s = Math.abs(dy) + Math.abs(dx) * 2; if (s < bs) { bs = s; best = e; } }
+        if (best) { best.focus({ preventScroll: true }); SND.play('move'); return; }
+      }
+      return;   // down at the last item stays put: only B leaves the tab
+    }
+  }   // the Control Center: left and right move along the icons   // on the Volume row the stick/D-pad left and right change the volume
   const cur = document.activeElement;
   if (cur?.dataset.adjust && cur === editing && (dir === 'left' || dir === 'right')) {
     const k = cur.dataset.adjust, before = settings[k];
@@ -2945,6 +3230,8 @@ function back() {
   if (!introOn) SND.play('back');
   if (themeOpen) { themeOpen = false; paneRefresh(); return; }
   if (editing) { editing.classList.remove('editing'); editing = null; return; }
+  if (guideOn && psOn() && psCust) { psCustToggle(); return; }
+  if (psOn() && gdRow) { psLeaveRow(); return; }   // inside the cards B goes back to the icon bar; on the bar it closes the menu
   if (guideOn) { if (guidePage !== 'main') { guidePage = guidePage === 'off' || guidePage === 'restart' ? 'power' : 'main'; return renderGuide(); } if (dash) return; closeGuide(); if (dash) { silenceAll(true); resumeSmooth(); } return; }
   if (launching) { hideLaunch(true); silenceAll(false); return api.launchCancel(); }
   if (osk) return oskClose(null);
@@ -3005,7 +3292,7 @@ document.addEventListener('keydown', (e) => {
 if (window.consoleApi.onPadNav) window.consoleApi.onPadNav((k) => {   // controller presses that arrive while another monitor has the focus
   if (avc || locked() || (introOn && !introStage)) return;
   if (k === 'up' || k === 'down' || k === 'left' || k === 'right') move(k);
-  else if (k === 'a') activate(document.activeElement);
+  else if (k === 'a') { if (psOn() && !gdRow) psEnterRow(); else activate(document.activeElement); }
   else if (k === 'b') { if (capture) { capture = null; note('Cancelled.'); } else back(); }
   else if (k === 'lb') tab(-1);
   else if (k === 'rb') tab(1);
@@ -3020,7 +3307,17 @@ function fire(key, now, fn, first = 350, repeat = 130) {
   if (held[key] === undefined) { held[key] = now + first; fn(); }
   else if (now >= held[key]) { held[key] = now + repeat; fn(); }
 }
-let muteUntil = 0;
+const padDbg = []; let padDbgN = 0;
+let psKeyAt = 0, psKeyFired = false, keyDbgN = 0;
+window.addEventListener('keydown', (e) => {   // v1093: some controllers send their logo button as a media / browser key instead of a game button
+  if (e.repeat) return;
+  if (keyDbgN++ < 40) { try { window.consoleApi.lagLog('key down: ' + e.key + ' | ' + e.code + ' | ' + e.keyCode); } catch {} }
+  if (padKind() === 'ps' && e.code === 'BrowserHome') { psKeyAt = performance.now(); psKeyFired = false; setTimeout(() => { if (psKeyAt && !psKeyFired) { psKeyFired = true; if (!introOn && !osk && !menu && !launching && !guideOn) openGuide(); } }, 450); e.preventDefault(); }
+}, true);
+window.addEventListener('keyup', (e) => {
+  if (padKind() === 'ps' && e.code === 'BrowserHome' && psKeyAt) { const fired = psKeyFired; psKeyAt = 0; if (!fired && introOn && introStage === 1 && signPressWait) signReveal(); else if (!fired && !introOn && !osk) { try { if (guideOn) closeGuide(); else { if (menu) closeMenu(false); if (screen !== 'home') show('home'); } SND.play('tab'); } catch {} } e.preventDefault(); }
+}, true);
+let muteUntil = 0, psWas = false, psAt = 0, psFired = false;
 function pickPad() {   // prefer a real Xbox/XInput controller over virtual or extra devices, which cause ghost presses
   const all = [...(navigator.getGamepads() || [])].filter((p) => p && p.connected);
   return all.find((p) => /xbox|xinput|045e/i.test(p.id) && p.mapping === 'standard') || all.find((p) => p.mapping === 'standard') || all[0];
@@ -3032,6 +3329,17 @@ function poll(now) {
   const el = $('#pad');
   if (pad) {
     el.classList.add('on'); if (!cpad) { cpad = true; updateLock(); }
+    padKindFrom(pad);
+    if (signPressWait && introOn && introStage === 1) { const ps = !!(pad.buttons[16] && pad.buttons[16].pressed); if (ps && !psRevWas) signReveal(); psRevWas = ps; }   // only the PS button opens the sign-in page; sticks and other buttons do nothing here
+    { const n = pad.buttons.length; for (let i = 0; i < n; i++) { const pr = !!(pad.buttons[i] && pad.buttons[i].pressed); if (i >= 10 && pr !== !!padDbg[i] && padDbgN++ < 80) { try { window.consoleApi.lagLog('pad button ' + i + (pr ? ' down' : ' up') + ' (of ' + n + ', ' + pad.mapping + ')'); } catch {} } padDbg[i] = pr; } }   // what the extra buttons (PS / logo / paddles) really send, for the log
+    if (padKind() === 'ps' && !xpad && pad.buttons.length > 16) {   // the PS button: hold opens the PlayStation Control Center, a tap goes to the home page
+      const psNow = !!(pad.buttons[16] && pad.buttons[16].pressed);
+      if (psNow && !psWas) { psAt = now; psFired = false; }
+      if (psNow) { sup.add(16); if (!psFired && now - psAt > 450) { psFired = true; if (!introOn && !osk && !menu && !launching) { if (!guideOn) openGuide(); } } }
+      else if (psWas && !psFired && introOn && introStage === 1 && signPressWait) signReveal();
+      else if (psWas && !psFired && !introOn && !osk) { try { if (guideOn) closeGuide(); else { if (menu) closeMenu(false); if (screen !== 'home') show('home'); } SND.play('tab'); } catch {} }
+      psWas = psNow;
+    }
     if (document.body.classList.contains('ambient')) {   // the clock page: the first controller input only wakes the console and goes back to the dashboard, it does not press anything
       if (pad.buttons.some((b) => b.pressed) || Math.abs(pad.axes[0] || 0) > .5 || Math.abs(pad.axes[1] || 0) > .5) { pad.buttons.forEach((b, i) => { if (b.pressed) sup.add(i); }); window.dispatchEvent(new Event('ambwake')); }
       requestAnimationFrame(poll); return;
@@ -3047,6 +3355,7 @@ function poll(now) {
       }
     }
     const stNow = !!(pad.buttons[9] && pad.buttons[9].pressed);
+    if (stNow && !stWas && guideOn && psOn() && !menu && !osk) { sup.add(9); psCustToggle(); }
     if (stNow && !stWas && screen === 'binds' && !menu && !osk && !guideOn && !testing) { switchPadProfile(((settings.padProfile || 0) + 1) % 3); SND.play('tab'); sup.add(9); }
     if (stNow && !stWas && !menu && !osk && !guideOn && !launching && !capture && !introOn) {
       if ((screen === 'library' || screen === 'home') && document.activeElement && document.activeElement.dataset.game) { openMenu(document.activeElement, document.activeElement.dataset.game); sup.add(9); }
@@ -3128,6 +3437,7 @@ function openUp() {   // the opening mirrors the closing: the black lifts slowly
 }
 let pwrT = null;
 function powerOffScreen(on, hold) {
+  if (on === true) { try { SND.play('poweroff', 1); } catch {} }
   const p = document.getElementById('pwr'); if (!p) return;
   const av = p.querySelector('.pav'); if (av) { av.innerHTML = avatarSpan('xl'); applyAvatars(); }   // your own profile picture
   const sm = p.querySelector('small'), hi = p.querySelector('em');
@@ -3206,17 +3516,21 @@ function introGLStart(v) {
   v.addEventListener('loadeddata', () => { if (igl === me && first) draw(); }, { once: true });
   v.addEventListener('playing', () => { if (igl === me) draw(); }, { once: true });
 }
-function runIntro() {   // startup animation, then the sign-in page
+let introVidPlayed = false;
+function runIntro() {
+  introVidPlayed = false; try { psSfxLoad(); } catch {}   // startup animation, then the sign-in page
+  if (!padReady) { padKindInit().then(() => runIntro()); return; }   // v1091: first find out which controller is in use
+  const introFile = padKind() === 'ps' ? settings.introVideoPs : settings.introVideo;
   if (!settings.intro) { SND.hold(false); try { SND.startMusic(); } catch {} openUp(); return; }
   introOn = true; introStage = 0; introLast = Date.now(); SND.hold(true); document.body.classList.add('intro-on'); try { appMidnight(false); } catch {}
-  try { if (typeof settings.introVideo === 'string' && window.bdHold) window.bdHold(true); } catch {}   // v812: the moving wallpaper waits until the startup video is done
+  try { if (typeof introFile === 'string' && introFile && window.bdHold) window.bdHold(true); } catch {}   // v812: the moving wallpaper waits until the startup video is done
   const el = $('#intro');
   el.className = ''; el.hidden = false; void el.offsetWidth;   // the screen stays black for a moment, then the video fades in
   api.introWait(true); dropBootCover(0);
-  const v = $('#introv'), f = settings.introVideo;
+  const v = $('#introv'), f = introFile;
   const fallback = () => { v.pause(); v.removeAttribute('src'); if (introOn && !introStage) introNext(true); };
   if (typeof f === 'string' && /^startup-[a-z0-9]+\.(mp4|webm)$/.test(f)) {   // your own startup video
-    el.classList.add('has-video'); document.body.classList.add('introplay'); v.hidden = false; v.volume = 0.8; v.currentTime = 0;
+    introVidPlayed = true; el.classList.add('has-video'); document.body.classList.add('introplay'); v.hidden = false; v.volume = 0.8; v.currentTime = 0;
     v.onended = () => { if (introOn && !introStage) introNext(true); };
     v.ontimeupdate = () => { if (introOn && !introStage && v.duration && v.duration - v.currentTime < 2.4 && window.__bdHold && window.bdHold && !v._pre) { v._pre = true; try { window.bdHold(false); } catch {} } if (introOn && !introStage && v.duration && v.duration - v.currentTime < 0.9) introNext(true); };   // v949: the live wallpaper is built during the last 2 seconds of the video (drawing stays paused until it ends), so it is already moving when the sign-in page appears   // start the cross-fade just before the video ends so there is no hard cut
     v._retry = false;
@@ -3245,16 +3559,119 @@ function runIntro() {   // startup animation, then the sign-in page
     setTimeout(() => { if (introOn && !introStage) introNext(true); }, 60000);
   } else { setTimeout(() => { if (introOn && !introStage) introNext(true); }, 50); }   // no startup video: straight to the sign-in page
 }
+function signBg(on) {   // the PS5 boot video is the sign-in page's background while a PlayStation controller is in use; its last scene then loops, so the particles keep drifting
+  const v = $('#signbgv'), lp = $('#signloop'); if (!v) return;
+  const rel = () => { try { if (window.__bdHold && window.bdHold) window.bdHold(false); } catch {} };
+  if (!on) { rel(); signPressWait = false; psLoginShow(false); if (v.hidden) return; try { $('#intro').classList.remove('signbg-wait'); } catch {} v.classList.remove('on'); if (lp) lp.classList.remove('on'); const v0 = v.volume, l0 = lp ? lp.volume : 0, t1 = performance.now(), fo = () => { const k = Math.min(1, (performance.now() - t1) / 800); try { v.volume = Math.max(0, v0 * (1 - k)); if (lp) lp.volume = Math.max(0, l0 * (1 - k)); } catch {} if (k < 1) requestAnimationFrame(fo); else { try { v.pause(); if (lp) lp.pause(); } catch {} v.hidden = true; if (lp) lp.hidden = true; } }; requestAnimationFrame(fo); return; }
+  if (padKind() !== 'ps' || !v.hidden) { window.__signDirect = false; return; }
+  if (settings.signBgVideo && lp) {   // your own video: it loops behind the sign-in page, silent, with no boot sequence
+    lp.src = 'ctheme://img/' + settings.signBgVideo; lp.loop = true; lp.muted = true; lp.hidden = false; v.hidden = false; v.classList.add('on');
+    try { if (window.__bdHold !== undefined && window.bdHold) window.bdHold(true); } catch {}
+    lp.onerror = () => { lp.hidden = true; v.hidden = true; v.classList.remove('on'); rel(); };
+    lp.play().then(() => lp.classList.add('on')).catch(() => { lp.hidden = true; v.hidden = true; rel(); }); return;
+  }
+  const el = $('#intro');
+  const direct = !!window.__signDirect; window.__signDirect = false;
+  v.hidden = false; v.classList.add('on');
+  try { if (window.__bdHold !== undefined && window.bdHold) window.bdHold(true); } catch {}
+  psLoginShow(true, !direct && !introVidPlayed);   // a startup video already played: no second logo sequence, straight to the prompt
+  signPressWait = !direct; introVidPlayed = false; if (el) { if (direct) el.classList.add('sign-revealed'); else { el.classList.add('signbg-wait'); el.classList.remove('sign-revealed'); } }
+}
+let psl = null, pslRaf = 0, pslAu = null, pslSfx = null, pslSfxT = 0;
+const PSFX = { enter: [0.25, 1.3], select: [1.67, 2.8], home: [3.2, 4.3], tap: [1.67, 2.12], pop: [0.25, 0.95] };   // each starts right at the sound's first moment, so there is no lead-in before it
+window.psSfxUi = (n) => psSfxUi(n);
+let pslCtx = null, pslBuf = null, pslGain = null;
+function psSfxLoad() {   // decoded once into memory so every sound starts the instant it is asked for
+  if (pslBuf !== null) return; pslBuf = false;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; pslCtx = new AC({ latencyHint: 'interactive' }); try { pslCtx.resume(); } catch {} pslGain = pslCtx.createGain(); pslGain.gain.value = .13; pslGain.connect(pslCtx.destination);
+    fetch('ctheme://img/startup-pssfx.mp4').then((r) => r.arrayBuffer()).then((b) => pslCtx.decodeAudioData(b)).then((d) => { pslBuf = d; }).catch(() => { pslBuf = false; });
+  } catch {}
+}
+function psSfxUi(n) {   // every menu sound on a PlayStation controller: the real PS5 clips where I have them
+  const m = { select: 'tap', on: 'tap', open: 'pop' }[n]; if (!m || !pslBuf) return false; psSfx(m); return true;
+}
+function psSfx(name) {
+  try {
+    const r = PSFX[name]; if (!r) return; psSfxLoad();
+    if (pslBuf && pslCtx) { if (pslCtx.state === 'suspended') pslCtx.resume(); const src = pslCtx.createBufferSource(), g = pslCtx.createGain(), d = r[1] - r[0], t = pslCtx.currentTime; src.buffer = pslBuf; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + .004); g.gain.setValueAtTime(1, t + Math.max(0.01, d - .12)); g.gain.linearRampToValueAtTime(0, t + d); src.connect(g); g.connect(pslGain); src.start(0, r[0], d); return; }
+    if (!pslSfx) { pslSfx = new Audio('ctheme://img/startup-pssfx.mp4'); pslSfx.preload = 'auto'; pslSfx.volume = .13; }
+    const a = pslSfx; clearTimeout(pslSfxT); a.currentTime = r[0]; a.play().catch(() => {}); pslSfxT = setTimeout(() => { try { a.pause(); } catch {} }, (r[1] - r[0]) * 1000 + 50);
+  } catch {}
+}
+const PSLOGO = 'data:image/png;base64,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';
+function psLoginShow(on, boot) {   // my own PS5 start screen: the PlayStation logo on black, dark blue bokeh, golden dust, the spotlight, then "Press the PS button on your controller" with the pulsing ring
+  if (!on) { if (pslAu) { const au = pslAu; pslAu = null; const v0 = au.volume, t1 = performance.now(), fo = () => { const k = Math.min(1, (performance.now() - t1) / 1400); try { au.volume = Math.max(0, v0 * (1 - k)); } catch {} if (k < 1) requestAnimationFrame(fo); else { try { au.pause(); } catch {} } }; requestAnimationFrame(fo); } if (pslRaf) cancelAnimationFrame(pslRaf); pslRaf = 0; if (psl) { psl.classList.remove('on'); setTimeout(() => { if (psl && !psl.classList.contains('on')) psl.hidden = true; }, 900); } return; }
+  const intro = $('#intro'); if (!intro) return;
+  if (!psl) {
+    psl = document.createElement('div'); psl.id = 'psl'; psl.hidden = true;
+    psl.innerHTML = '<canvas></canvas><img class="psl-big" alt=""><div class="psl-warn">PHOTOSENSITIVE EPILEPSY: IF YOU HAVE A HISTORY OF EPILEPSY OR SEIZURES, CONSULT A DOCTOR BEFORE USE.<br>CERTAIN PATTERNS MAY TRIGGER SEIZURES WITH NO PRIOR HISTORY. BEFORE USING THIS PRODUCT, CAREFULLY READ<br>THE INSTRUCTION MANUAL.</div><div class="psl-txt">Press the PS button on your controller.</div><div class="psl-disc"><i></i><u></u><div><img alt=""></div></div>';
+    psl.querySelector('.psl-big').src = PSLOGO; psl.querySelector('.psl-disc img').src = PSLOGO;
+    intro.insertBefore(psl, $('#sign'));
+  }
+  psl.hidden = false; void psl.offsetWidth; psl.classList.add('on');
+  try { psSfxLoad(); } catch {}
+  try {   // the real PS5 startup sound and login-screen music
+    if (pslAu) { pslAu.pause(); pslAu = null; }
+    SND.hold(true); const au = new Audio('ctheme://img/startup-psaudio.mp4'); pslAu = au; au.preload = 'auto'; au.volume = 0;
+    const st0 = boot ? 0 : 8, go = () => { try { au.currentTime = st0; } catch {} au.play().catch(() => {}); const t1 = performance.now(), fi = () => { if (pslAu !== au) return; const k = Math.min(1, (performance.now() - t1) / (boot ? 600 : 1800)); try { au.volume = .14 * k; } catch {} if (k < 1) requestAnimationFrame(fi); }; requestAnimationFrame(fi); };
+    if (au.readyState >= 1) go(); else au.onloadedmetadata = go;
+    au.onended = () => { try { au.currentTime = 8; au.play(); } catch {} };
+  } catch {}
+  const warn = psl.querySelector('.psl-warn'), big = psl.querySelector('.psl-big'), txt = psl.querySelector('.psl-txt'), disc = psl.querySelector('.psl-disc');
+  const cv = psl.querySelector('canvas'), cx = cv.getContext('2d');
+  const W = cv.width = Math.min(2560, Math.round(innerWidth * (devicePixelRatio || 1))), H = cv.height = Math.round(W * innerHeight / innerWidth);
+  const rnd = (a, b) => a + Math.random() * (b - a), cl = (x) => Math.max(0, Math.min(1, x)), ss = (a, b, x) => { x = cl((x - a) / (b - a)); return x * x * x * (x * (6 * x - 15) + 10); };
+  // golden dust: a band across the lower middle, denser to the right, sizes from pin-pricks to big soft discs
+  const dust = Array.from({ length: 260 }, () => { const big = Math.random() < .12, small = Math.random() < .68; const x = rnd(-.05, 1.05) * W; return { x, y: (.62 + (Math.random() + Math.random() + Math.random() - 1.5) * .2 - (x / W) * .1) * H, r: big ? rnd(7, 15) : small ? rnd(.7, 2) : rnd(2.5, 7), vx: rnd(-.12, .12), vy: rnd(-.16, .06), a: big ? rnd(.12, .28) : rnd(.35, 1), ph: rnd(0, 6.28), bk: !small, w: Math.random() < .12 }; });
+  const blue = Array.from({ length: 9 }, () => ({ x: rnd(.1, .9) * W, y: rnd(.1, .9) * H, r: rnd(.12, .3) * W, vx: rnd(-.1, .1), vy: rnd(-.08, .08), ph: rnd(0, 6.28) }));
+  if (pslRaf) cancelAnimationFrame(pslRaf);
+  let beam = null;
+  let t0 = performance.now() + (boot ? 1e7 : -14000);   // for the first start the picture waits for the sound to begin, so the two start together
+  if (boot) { setTimeout(() => { if (t0 > performance.now()) t0 = performance.now(); }, 2500); try { pslAu.onplaying = () => { if (t0 > performance.now()) t0 = performance.now(); }; } catch {} }
+  let dim = 0;
+  const frame = (now) => {
+    if (!psl || psl.hidden) return; const t = (now - t0) / 1000;
+    const logoA = ss(.3, 1.8, t) * (1 - ss(2, 3.8, t)), discA = ss(2, 4, t) * (1 - ss(6.2, 7.6, t)), warnA = ss(2.6, 4.2, t) * (1 - ss(5, 6, t)), blueB = ss(4.8, 6, t), dustA = ss(6, 7.4, t), spotA = ss(6.8, 9.8, t), uiA = ss(9.6, 11.4, t), blueA = discA;
+    cx.globalCompositeOperation = 'source-over'; cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
+    const bg = cx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, 'rgba(15,17,28,' + (.25 + .75 * spotA) + ')'); bg.addColorStop(1, 'rgba(30,28,36,' + (.2 + .8 * spotA) + ')'); cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
+    cx.globalCompositeOperation = 'lighter';
+    for (const b of blue) { b.x += b.vx; b.y += b.vy; const g = cx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r); const a = (.05 + .11 * blueB) * blueA * (.8 + .2 * Math.sin(t * .5 + b.ph)); g.addColorStop(0, 'rgba(40,90,190,' + a + ')'); g.addColorStop(.85, 'rgba(40,90,190,' + a * .8 + ')'); g.addColorStop(1, 'rgba(40,90,190,0)'); cx.fillStyle = g; cx.fillRect(b.x - b.r, b.y - b.r, b.r * 2, b.r * 2); }
+    // floor glow
+    { const g = cx.createRadialGradient(W * .3, H * 1.02, 0, W * .3, H * 1.02, W * .5); g.addColorStop(0, 'rgba(95,112,130,' + .34 * spotA + ')'); g.addColorStop(1, 'rgba(95,112,130,0)'); cx.save(); cx.translate(0, H * 1.02); cx.scale(1, .28); cx.translate(0, -H * 1.02); cx.fillStyle = g; cx.fillRect(0, 0, W, H * 1.3); cx.restore(); }
+    // spotlight from the top left: a wide soft cone plus a fainter second beam
+    { const sx = W * (.16 + .01 * Math.sin(t * .3)), sy = -H * .06;
+      if (!beam) { beam = document.createElement('canvas'); beam.width = W; beam.height = H; const bx = beam.getContext('2d'); bx.filter = 'blur(' + Math.round(W * .02) + 'px)';
+        const cone = (x0, ang, spread, len, a) => { bx.save(); bx.translate(x0, sy); bx.rotate(ang); const g = bx.createLinearGradient(0, 0, 0, len); g.addColorStop(0, 'rgba(225,200,185,' + a + ')'); g.addColorStop(.5, 'rgba(190,165,155,' + a * .35 + ')'); g.addColorStop(1, 'rgba(160,140,140,0)'); bx.fillStyle = g; bx.beginPath(); bx.moveTo(-W * .02, 0); bx.lineTo(W * .02, 0); bx.lineTo(spread, len); bx.lineTo(-spread, len); bx.closePath(); bx.fill(); bx.restore(); };
+        cone(sx, .03, W * .17, H * 1.2, .26); cone(sx + W * .02, -.5, W * .09, H * 1.3, .1); }
+      cx.globalAlpha = spotA; cx.drawImage(beam, 0, 0); cx.globalAlpha = 1;
+      const g = cx.createRadialGradient(sx, sy, 0, sx, sy, W * .2); g.addColorStop(0, 'rgba(235,210,195,' + .3 * spotA + ')'); g.addColorStop(1, 'rgba(235,210,195,0)'); cx.fillStyle = g; cx.fillRect(0, 0, W * .5, H * .6); }
+    for (const d of dust) { d.x += d.vx + Math.sin(t * .4 + d.ph) * .08; d.y += d.vy + Math.cos(t * .3 + d.ph) * .05; if (d.x < -20) d.x = W + 20; if (d.x > W + 20) d.x = -20; if (d.y < H * .25) d.y = H * .95; if (d.y > H) d.y = H * .3;
+      const a = d.a * dustA * (.65 + .35 * Math.sin(t * 1.1 + d.ph)); if (a < .01) continue; const col = d.w ? '255,250,235' : '245,185,110';
+      if (d.bk) { const g = cx.createRadialGradient(d.x, d.y, 0, d.x, d.y, d.r); g.addColorStop(0, 'rgba(' + col + ',' + a * .35 + ')'); g.addColorStop(.8, 'rgba(' + col + ',' + a * .55 + ')'); g.addColorStop(1, 'rgba(' + col + ',0)'); cx.fillStyle = g; cx.fillRect(d.x - d.r, d.y - d.r, d.r * 2, d.r * 2); }
+      else { cx.fillStyle = 'rgba(' + col + ',' + a + ')'; cx.beginPath(); cx.arc(d.x, d.y, d.r, 0, 6.2832); cx.fill(); } }
+    big.style.setProperty('opacity', String(logoA)); warn.style.setProperty('opacity', String(warnA)); txt.style.setProperty('opacity', String(uiA * (.82 + .18 * Math.sin(t * 2.6)))); disc.style.setProperty('opacity', String(uiA));
+    pslRaf = requestAnimationFrame(frame);
+  };
+  pslRaf = requestAnimationFrame(frame);
+}
+let signPressWait = false, psRevWas = false;
+function signReveal() {   // PS button pressed on the login screen: the sign-in page opens over the same background
+  if (!signPressWait) return false; signPressWait = false;
+  const el = $('#intro'); if (el) { el.classList.remove('signbg-wait'); el.classList.add('sign-revealed'); }
+  if (padKind() === 'ps') psSfx('enter'); else { try { SND.play('tab'); } catch {} }
+  return true;
+}
 function introNext(auto) {
   if (!auto) return;   // cannot be skipped by any button   // boot animation/video -> sign-in page (A skips the animation)
   if (!introOn || introStage) return;
   if (!auto && Date.now() - introLast < 450) return;
   introLast = Date.now(); introEnd = Date.now();
   const el = $('#intro'), v = $('#introv');
-  introStage = 1; document.body.classList.remove('introplay'); SND.hold(false); try { SND.startMusic(); } catch {} setTimeout(() => { try { v.pause(); } catch {} v.hidden = true; introGLStop(); }, 2800);
+  introStage = 1; document.body.classList.remove('introplay'); if (padKind() !== 'ps' || (settings.signBgVideo)) { SND.hold(false); try { SND.startMusic(); } catch {} } setTimeout(() => { try { v.pause(); } catch {} v.hidden = true; introGLStop(); }, 2800);
   { const v0 = v.volume, t1 = performance.now(), fo = () => { const k = Math.min(1, (performance.now() - t1) / 1500); try { v.volume = Math.max(0, v0 * (1 + Math.cos(k * Math.PI)) / 2); } catch {} if (k < 1 && !v.hidden) requestAnimationFrame(fo); }; requestAnimationFrame(fo); }   // the sound eases out while the picture cross-fades to sign-in
-  signRender();
-  try { if (window.__bdHold && window.bdHold) window.bdHold(false); } catch {}   // v916: the live wallpaper starts on the sign-in page as soon as the startup video has finished
+  signRender(); try { signBg(true); } catch {}
+  try { const sv = $('#signbgv'); if (!(sv && !sv.hidden) && window.__bdHold && window.bdHold) window.bdHold(false); } catch {}   // the live wallpaper stays paused while the PS5 video plays, so the video never competes with it   // v916: the live wallpaper starts on the sign-in page as soon as the startup video has finished
   el.classList.remove('boot-on', 'has-video'); el.classList.add('press-on');
 }
 let homePrepped = false;
@@ -3265,6 +3682,9 @@ function prepHome() { try { prewarmHeroes(); } catch {}   // v948: the dashboard
 }
 function leaveIntro() {   // you picked a user: fade into the dashboard
   if (!introOn || introStage !== 1) return;
+  if (padKind() === 'ps') { psSfx('select'); setTimeout(() => psSfx('home'), 500); }
+  try { signBg(false); } catch {}
+  try { SND.hold(false); SND.startMusic(); } catch {}
   if (window.__bdHold && window.bdHold) window.bdHold(false);   // safety: the moving wallpaper is always back by the time you are in
   introOn = false; document.body.classList.add('intro-rise'); setTimeout(() => document.body.classList.remove('intro-rise'), 2800); document.body.classList.remove('introplay', 'intro-on'); introEnd = Date.now(); setTimeout(() => { try { api.introWait(false); closeMenu(true); } catch {} }, 250);   // v952: nothing heavy runs in the same moment the dissolve starts
   
@@ -3273,10 +3693,10 @@ function leaveIntro() {   // you picked a user: fade into the dashboard
   try { const iv = $('#introv'); if (iv) iv.pause(); } catch {}   // v941: no black any more: the sign-in page fades away over the live wallpaper while the dashboard fades in
   if (!homePrepped) prepHome(); homePrepped = false;
   const unfocus = () => { try { if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur(); } catch {} };   // no selection outline while the black is still fading away
-  unfocus(); [150, 400, 700, 1000, 1250].forEach((t) => setTimeout(unfocus, t));
+  unfocus(); [100].forEach((t) => setTimeout(unfocus, t));   // v1071: the first game is selected right away, no waiting for the sign-in page to finish fading
   setTimeout(() => { el.hidden = true; introGLStop(); }, 900);
   setTimeout(() => { try { const h = document.getElementById('hero'); api.lagLog('wallpaper check on home (' + Math.round(performance.now()) + ' ms after the page started): hero opacity ' + getComputedStyle(h).opacity + ', body ' + document.body.className + ', ' + (window.bdReport ? window.bdReport() : '')); } catch {} }, 3500);
-  setTimeout(() => { const bt = document.querySelector('.xn, .xbig, .xq, .bigtile'); if (bt) bt.focus({ preventScroll: true }); }, 1500);
+  setTimeout(() => { const bt = document.querySelector('.xn, .xbig, .xq, .bigtile'); if (bt) bt.focus({ preventScroll: true }); }, 220);
 }
 /* ---------- sign-in page ---------- */
 function signUsers() { return [{ id: '', name: profileName(), av: settings.avatarFile }, ...settings.profiles.map((p) => ({ id: p.id, name: p.name, av: p.avatarFile }))]; }
@@ -3285,13 +3705,13 @@ function signRender(focusSel) {
   if (rm !== null) return;
   if (!settings.profileSet && !pc) { profileCreate(true); return; }   // a brand-new install: the name and picture come first
   if (pc) return;
-  const users = signUsers();
+  const users = signUsers(), psSign = padKind() === 'ps';
   const u = (x) => `<button class="sg-u${x.id === '' ? ' me' : ''}" data-nav data-sgu="${esc(x.id)}" data-sgname="${esc(x.name)}"><span class="sg-pad"></span><span class="sg-av" data-avf="${esc(x.av || '')}">${esc((x.name || '?')[0].toUpperCase())}</span><span class="sg-n">${esc(x.name)}</span><span class="sg-opt">${padGlyph('START')}<b>Options</b></span></button>`;
   $('#sign').innerHTML = `<div class="sg-bg"></div><div class="sg-clk"></div>
-    <div class="sg-title">Welcome${welcomeFirst ? '' : ' Back'} <b class="sg-tn">${esc(profileName())}</b></div><div class="sg-sub"></div>
-    <div class="sg-wrap"><div class="sg-row"><button class="sg-u sg-add" data-nav data-sgadd><span class="sg-pad"></span><span class="sg-av plus">+</span><span class="sg-n">Add new</span><span class="sg-opt"></span></button>${users.map(u).join('')}</div></div>
+    <div class="sg-title">${psSign ? 'Welcome Back to PlayStation' : `Welcome${welcomeFirst ? '' : ' Back'} <b class="sg-tn">${esc(profileName())}</b>`}</div><div class="sg-sub">${psSign ? 'Who\'s using this controller?' : ''}</div>
+    <div class="sg-wrap"><div class="sg-row"><button class="sg-u sg-add" data-nav data-sgadd><span class="sg-pad"></span><span class="sg-av plus">+</span><span class="sg-n">${psSign ? 'Add User' : 'Add new'}</span><span class="sg-opt"></span></button>${users.map(u).join('')}</div></div>
     <button class="sg-power" data-nav data-sgpower>${ICON.power}</button><div class="sg-sel">${padGlyph(settings.binds.confirm)}<span>Select</span></div>`;
-  applyAvatars(); tick();
+  $('#sign').classList.toggle('pss', psSign); applyAvatars(); tick();
   const t = (focusSel && $('#sign ' + focusSel)) || $('#sign .sg-u.me');
   if (t) t.focus({ preventScroll: true });
   signCenter();
@@ -3421,14 +3841,27 @@ async function signAct(a, id) {
   else if (a === 'sgremove') { settings = await api.profilesRemove(id); signRender(); return; }
   signRender(sel);
 }
+let ccSig = '';
+function ccSync(force) {   // the Control Center redraws the moment a controller is plugged in, unplugged or its battery changes
+  try {
+    const sig = padName() + '|' + cbattPct; if (!force && sig === ccSig) return; ccSig = sig;
+    if (!guideOn || osk || psCust || typeof renderGuide !== 'function') return;
+    const els = [...document.querySelectorAll('#guide .gd-body [data-nav]')], i = els.indexOf(document.activeElement);
+    renderGuide(i >= 0 ? i : (gdRow ? 0 : undefined), true);
+  } catch {}
+}
+window.addEventListener('gamepadconnected', () => setTimeout(ccSync, 50));
+window.addEventListener('gamepaddisconnected', () => setTimeout(ccSync, 50));
+setInterval(() => { if (guideOn) ccSync(); }, 1000);
 function applyCbatt(v) {   // the Xbox controller's battery, like the Xbox dashboard (XInput only reports empty / low / medium / full); Windows also says when it is charging
   const el = $('#cbatt'); if (!el) return;
   const chg = !!(v && v.chg), wired = !!v && v.type === 1;
-  if (!v || ((v.type < 2 || v.type > 3) && !(chg || (wired && v.pct >= 0)))) { el.hidden = true; return; }   // no controller (or a plain wired one with no battery): nothing to show
+  if (!v || ((v.type < 2 || v.type > 3) && !(chg || (wired && v.pct >= 0)))) { cbattPct = -1; el.hidden = true; setTimeout(ccSync, 0); return; }   // no controller (or a plain wired one with no battery): nothing to show
   const pct = v.pct >= 0 ? Math.max(1, Math.min(100, v.pct)) : [8, 30, 65, 100][Math.max(0, Math.min(3, v.level))];
-  el.hidden = false; el.title = chg ? 'Controller charging' : 'Controller battery'; el.classList.toggle('low', !chg && pct <= 30); el.classList.toggle('chg', chg);
+  cbattPct = pct; el.hidden = false; el.title = chg ? 'Controller charging' : 'Controller battery'; el.classList.toggle('low', !chg && pct <= 30); el.classList.toggle('chg', chg);
   const f = el.querySelector('.cf'); if (f) f.setAttribute('width', String(Math.max(1, Math.round(pct / 100 * 21))));
   const t = el.querySelector('.cp'); if (t) t.textContent = pct + '%';
+  setTimeout(ccSync, 0);
 }
 if (window.consoleApi && window.consoleApi.onCbatt) { window.consoleApi.onCbatt(applyCbatt); window.consoleApi.cbattGet().then(applyCbatt).catch(() => {}); }
 let battP = null;
@@ -3474,7 +3907,7 @@ function tick() { tickBattery(); const t = new Date().toLocaleTimeString('en-US'
       clearTimeout(e._t); e._t = setTimeout(() => { if (!guideOn) { e.classList.remove('on'); } }, 4000);
     } catch {}
   });
-  window.consoleApi.onHomeBtn(() => { lockHero(300); comeIn(); if (introOn) return; silenceAll(false); if (testing) { xboxLit = performance.now() + 700; return; } if (screen === 'home' && !guideOn && !osk && !menu && !(exitRet && performance.now() - exitRet.t < 4000) && !(extReturn && extReturn.game)) { extReturn = null; return; }   // already on the Home dashboard: the Xbox button does nothing there
+  window.consoleApi.onHomeBtn(() => { lockHero(300); comeIn(); if (introOn) { if (introStage === 1 && signPressWait) signReveal(); return; } silenceAll(false); if (testing) { xboxLit = performance.now() + 700; return; } if (screen === 'home' && !guideOn && !osk && !menu && !(exitRet && performance.now() - exitRet.t < 4000) && !(extReturn && extReturn.game)) { extReturn = null; return; }   // already on the Home dashboard: the Xbox button does nothing there
     closeMenu(true); if (osk) oskClose(null); if (guideOn) closeGuide(true); (async () => {
     const t0 = performance.now(); let r = extReturn;
     const onHomeNow = screen === 'home' && !(exitRet && performance.now() - exitRet.t < 4000);
@@ -3484,10 +3917,10 @@ function tick() { tickBattery(); const t = new Date().toLocaleTimeString('en-US'
     if (!r && exitRet && performance.now() - exitRet.t < 4000 && games.find((y) => y.id === exitRet.gid)) { gameId = exitRet.gid; return show('game', exitRet.idx); }   // the game just closed: its page is the right place
     if (r && SCREENS[r.screen]) { if (!r.game) extReturn = null; show(r.screen, r.idx); } else { extReturn = null; if (screen !== 'home' || document.body.classList.contains('idle')) show('home'); }   // already on Home: nothing to redraw
   })(); });
-  window.consoleApi.onDcWin((v) => { dcWin = v; if (guideOn && (guideTab === 'friends' || guideTab === 'profile') && guidePage === 'main') renderGuide(undefined, true); });
+  window.consoleApi.onDcWin((v) => { dcWin = v; if (guideOn && (guideTab === 'friends' || guideTab === 'profile' || guideTab === 'party') && guidePage === 'main') renderGuide(undefined, true); });
   window.consoleApi.onParty((s) => {
     const prev = partyState; partyState = s;
-    if (!guideOn || (guideTab !== 'friends' && guideTab !== 'profile') || guidePage !== 'main') return;
+    if (!guideOn || (!psOn() && guideTab !== 'friends' && guideTab !== 'profile') || guidePage !== 'main') return;
     const sig = (x) => x ? JSON.stringify([x.connected, x.auth, x.error, x.channel && x.channel.id, x.me, (x.members || []).map((m) => [m.id, m.name, m.mute, m.deaf])]) : '';
     if (sig(prev) === sig(s)) { (s.members || []).forEach((m) => { const e = document.querySelector(`#guide [data-pt="${CSS.escape(m.id)}"]`); if (e) { e.classList.toggle('game', !!m.speaking); e.classList.toggle('on', !m.speaking); } }); return; }
     const els = [...document.querySelectorAll('#guide .gd-body [data-nav]')], k = els.indexOf(document.activeElement);
@@ -3502,7 +3935,7 @@ function tick() { tickBattery(); const t = new Date().toLocaleTimeString('en-US'
     } catch {}
   });
   window.consoleApi.onAppBack(() => { const b = document.body; b.classList.remove('appback'); void b.offsetWidth; b.classList.add('appback'); setTimeout(() => b.classList.remove('appback'), 700); });
-  window.consoleApi.onGuide(async (hold) => { if (guideOn && dash && guidePage === 'main' && !hold) return leaveGameMenu(); if (hold) { document.body.classList.add('gdgame'); quietMedia(); setTimeout(quietMedia, 300); setTimeout(quietMedia, 1200); } lockHero(300); comeIn(); silenceAll(false); if (testing) { xboxLit = performance.now() + 700; return; } if (introOn) return; if (!hold && extReturn && extReturn.game && screen === 'game' && !guideOn && !osk && !menu) { const st = await api.gameStatus().catch(() => null); if (st) { silenceAll(true); lastReturn = extReturn; clearTimeout(extT); api.extSet('game'); return resumeSmooth(); } }   // back on a running game's page: tapping Xbox again goes back into the game
+  window.consoleApi.onGuide(async (hold) => { if (introOn && signPressWait) { signReveal(); return; } if (guideOn && dash && guidePage === 'main' && !hold) return leaveGameMenu(); if (hold) { document.body.classList.add('gdgame'); quietMedia(); setTimeout(quietMedia, 300); setTimeout(quietMedia, 1200); } lockHero(300); comeIn(); silenceAll(false); if (testing) { xboxLit = performance.now() + 700; return; } if (introOn) return; if (!hold && extReturn && extReturn.game && screen === 'game' && !guideOn && !osk && !menu) { const st = await api.gameStatus().catch(() => null); if (st) { silenceAll(true); lastReturn = extReturn; clearTimeout(extT); api.extSet('game'); return resumeSmooth(); } }   // back on a running game's page: tapping Xbox again goes back into the game
   openGuide(); const was = !!dash; dash = await api.gameStatus(); if (guideOn && guidePage === 'main' && was !== !!dash) renderGuide(undefined, true); });
   window.consoleApi.onGameExited((t, rid) => {   // a closed game leaves you on that game's page (Play is back), not on Home
   exitedAt = performance.now(); const ret = lastReturn || extReturn; dash = null; hideLaunch(true);
@@ -3566,6 +3999,7 @@ const ap = e.target.closest('[data-app]'); if (ap && screen === 'home' && ap.dat
     document.addEventListener('scroll', kick, true);
   }
   applySettings();
+  try { window.consoleApi.onPadKind((k) => { if (k) { padKindAuto = k; setPadKind(); } }); } catch {}
   runIntro();   // v791: the startup video is loaded and started first; the heavy home screen builds right after it is already rolling
   setTimeout(() => { show('home'); tick(); setInterval(tick, 10000); }, document.body.classList.contains('introplay') ? 900 : 0);
   requestAnimationFrame(poll);
@@ -3641,3 +4075,41 @@ function ubiForm() {
     paint(); document.body.appendChild(root); focusKey('email');
   });
 }
+
+/* v1070: every game's logo and wide art is made ready in the background, so selecting a game shows its name and picture at once (nothing is fetched or cut when you land on it) */
+(() => {
+  const done = new Set(); let busy = false;
+  setInterval(() => {
+    if (busy || typeof games === 'undefined' || !games || !games.length || document.hidden) return; busy = true;
+    try {
+      const todo = [];
+      { let n = 0; for (const g of games) { if (!g || done.has('f' + g.id)) continue; done.add('f' + g.id); try { loadHero(g); } catch {} if (++n >= 6) break; } }   // each game's logo and wide art are looked up now, not when you first land on it
+      for (const g of games) { if (!g) continue; const l = logoMap.get(g.id); if (l && !done.has('l' + g.id + l)) todo.push(['l', g, l]); const s = heroSrc(g); if (s && !done.has('h' + g.id + s)) todo.push(['h', g, s]); if (todo.length >= 4) break; }
+      Promise.all(todo.map(([k, g, v]) => { done.add(k + g.id + v); if (k === 'l') return trimLogo('ctheme://img/' + v, false).catch(() => {}); return new Promise((r) => { const i = new Image(); i.onload = i.onerror = () => r(); i.src = v; (i.decode ? i.decode() : Promise.resolve()).then(r, r); }); })).then(() => { busy = false; }, () => { busy = false; });
+    } catch { busy = false; }
+  }, 120);
+})();
+
+document.addEventListener('focusin', (e) => {   // Control Center: the chosen card sits at the left edge, lists keep the chosen row in view
+  if (!guideOn || !document.body.classList.contains('gd-ps') || !gdRow) return;
+  const el = e.target, b = el && el.closest ? el.closest('#guide .gd-body') : null; if (!b) return;
+  psHintSet(el);
+  if (document.body.classList.contains('gd-menu')) { el.scrollIntoView({ block: 'nearest', behavior: 'auto' }); return; }
+  let card = el; while (card.parentElement && card.parentElement !== b) card = card.parentElement;
+  const pl = parseFloat(getComputedStyle(b).paddingLeft) || 0;
+  psGlide(b, Math.max(0, card.offsetLeft - pl));
+});
+function psGlide(b, t) {   // eases the card row toward the chosen card; a new press just moves the target, so it never lags behind
+  b._gt = Math.min(t, b.scrollWidth - b.clientWidth); if (b._graf) return;
+  b.style.scrollBehavior = 'auto';
+  const step = () => { const d = b._gt - b.scrollLeft; if (Math.abs(d) < 1.5) { b.scrollLeft = b._gt; b._graf = 0; return; } b.scrollLeft += d * 0.3; b._graf = requestAnimationFrame(step); };
+  b._graf = requestAnimationFrame(step);
+}
+
+/* the controller pictures: if a file cannot be loaded, a drawn controller takes its place and the problem is written to the log */
+document.addEventListener('error', (e) => {
+  const t = e.target; if (!t || t.tagName !== 'IMG' || !(t.classList.contains('wpad') || t.classList.contains('pad-img'))) return;
+  try { window.consoleApi.lagLog('controller picture missing: ' + (t.getAttribute('src') || '')); } catch {}
+  if (t.dataset.fb) return; t.dataset.fb = '1';
+  const w = document.createElement('span'); w.className = t.className + ' padfb'; w.innerHTML = ICON.pad || ''; t.replaceWith(w);
+}, true);

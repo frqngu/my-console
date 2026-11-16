@@ -838,3 +838,5 @@ v630: sign-widevine.bat (signs the console's browser with castlabs' free service
 v631: Spotify bar/time move smoothly; the Spotify app opens Spotify's real web player (put an empty spotify-native.txt in the console data folder to get the console's own Spotify screen back)
 v632: Spotify volume no longer jumps back after a press
 v633: the Xbox-button menu shows what Spotify is playing, with Resume Spotify
+
+Ubisoft games: step-by-step setup is in UBISOFT-SETUP.txt (next to this file).

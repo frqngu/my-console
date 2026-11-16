@@ -42,6 +42,7 @@ const SND = (() => {
     n.connect(f); f.connect(g); g.connect(sfxBus); n.start(t);
   }
   const SOUNDS = {
+    poweroff: () => { whoosh(1.4, 2400, 220, 0.05); [[988, 0], [740, 0.16], [554, 0.34], [370, 0.56]].forEach(([f, at], k) => tone(f, 1.5 - k * 0.2, { v: 0.09 - k * 0.012, lp: 2200, at, a: 0.01, wet: 0.7 })); tone(110, 1.6, { v: 0.05, lp: 400, a: 0.05 }); },
     move: () => tone(700, 0.07, { v: 0.1, lp: 1300, to: 560, wet: 0.2 }),
     tab: () => { tone(620, 0.09, { v: 0.09, lp: 1500, wet: 0.25 }); tone(830, 0.12, { v: 0.08, lp: 1700, at: 0.045, wet: 0.3 }); },
     select: () => { tone(440, 0.2, { v: 0.15, lp: 1800, to: 520, wet: 0.35 }); tone(660, 0.26, { v: 0.1, lp: 2000, at: 0.03, wet: 0.4 }); },
@@ -56,14 +57,29 @@ const SND = (() => {
     page: () => whoosh(0.3, 500, 1600, 0.05),
     home: () => { whoosh(0.5, 400, 1800, 0.022); [[392, 0], [523, 0.07], [659, 0.14], [784, 0.21]].forEach(([f, at], k) => { tone(f, 1.6 - k * 0.2, { v: 0.05 - k * 0.006, lp: 2400, at, a: 0.02, wet: 0.85 }); tone(f * 2, 0.9, { v: 0.012, lp: 3200, at: at + 0.01, a: 0.01, wet: 0.9 }); }); tone(196, 1.4, { v: 0.05, lp: 700, a: 0.08, wet: 0.7 }); },   // the Xbox button: a soft, rising bell-like chime over a warm low note
   };
+  // the PlayStation 5 feel: tiny glassy taps and soft two-note chimes (a recreation, made live)
+  const PSOUNDS = {
+    poweroff: () => { whoosh(1.4, 2400, 220, 0.05); [[988, 0], [740, 0.16], [554, 0.34], [370, 0.56]].forEach(([f, at], k) => tone(f, 1.5 - k * 0.2, { v: 0.09 - k * 0.012, lp: 2200, at, a: 0.01, wet: 0.7 })); tone(110, 1.6, { v: 0.05, lp: 400, a: 0.05 }); },
+    move: () => { tone(1250, 0.04, { v: 0.1, lp: 3400, to: 900, a: 0.002, wet: 0.12 }); tone(170, 0.06, { v: 0.05, lp: 500, a: 0.002 }); },
+    tab: () => { tone(1500, 0.045, { v: 0.09, lp: 3600, to: 1100, a: 0.002, wet: 0.15 }); tone(200, 0.06, { v: 0.045, lp: 500, a: 0.002 }); },
+    select: () => { if (document.body.classList.contains('intro-on')) return; tone(880, 0.1, { v: 0.13, lp: 3400, a: 0.003, wet: 0.25 }); tone(1320, 0.18, { v: 0.09, lp: 3600, at: 0.05, a: 0.003, wet: 0.35 }); },
+    back: () => { tone(660, 0.09, { v: 0.11, lp: 2500, to: 470, a: 0.003, wet: 0.2 }); tone(330, 0.12, { v: 0.07, lp: 900, at: 0.03, a: 0.003 }); },
+    open: () => { whoosh(0.45, 500, 3200, 0.05); tone(880, 0.55, { v: 0.07, lp: 2800, a: 0.04, wet: 0.6 }); tone(1175, 0.65, { v: 0.055, lp: 2800, at: 0.07, a: 0.05, wet: 0.6 }); },
+    close: () => { whoosh(0.35, 3000, 450, 0.045); tone(1175, 0.3, { v: 0.06, lp: 2600, to: 880, wet: 0.5 }); },
+    on: () => { tone(740, 0.1, { v: 0.12, lp: 3200, a: 0.003, wet: 0.3 }); tone(1110, 0.16, { v: 0.09, lp: 3400, at: 0.055, a: 0.003, wet: 0.35 }); },
+    off: () => { tone(1110, 0.1, { v: 0.1, lp: 3200, a: 0.003, wet: 0.3 }); tone(740, 0.16, { v: 0.09, lp: 3000, at: 0.055, a: 0.003, wet: 0.35 }); }
+  };
   function play(name, vol) {
     if (st.muted) return;
+    try { const it = document.getElementById('intro'); if (it && it.classList.contains('signbg-wait')) return; } catch (e) { /* ignore */ }   // the start screen waiting for the PS button: no menu sounds
+    if (vol == null && document.body.classList.contains('pad-ps')) vol = 0.4;   // PlayStation sounds sit at the same quiet level as the startup music
     if (vol == null && performance.now() < (st.soft || 0)) vol = 0.22;   // just back from a game: the first sounds are soft so they never startle you over the game's own audio
     if (vol != null && vol < 1 && sfxBus && ctx) { const g = sfxBus.gain, base = st.sfxVol * 0.8; try { g.cancelScheduledValues(ctx.currentTime); g.setValueAtTime(base * vol, ctx.currentTime); setTimeout(() => { try { g.setValueAtTime(st.sfxVol * 0.8, ctx.currentTime); } catch {} }, 1100); } catch {} }
     if (!st.sfx || !SOUNDS[name]) return;
+    try { if (document.body.classList.contains('pad-ps') && !document.body.classList.contains('intro-on') && window.psSfxUi && window.psSfxUi(name)) return; } catch {}
     const now = performance.now(); if (now < st.quiet && name === 'move') return;
     if (st.last[name] && now - st.last[name] < (name === 'move' ? 55 : 30)) return; st.last[name] = now;
-    try { init(); if (ctx.state === 'suspended') ctx.resume(); SOUNDS[name](); } catch (e) { /* no sound device */ }
+    try { init(); if (ctx.state === 'suspended') ctx.resume(); ((document.body.classList.contains('pad-ps') && PSOUNDS[name]) || SOUNDS[name])(); } catch (e) { /* no sound device */ }
   }
   // ambient music, v790: every wallpaper has its own generative score (key, mode, chords, instrument, and the sounds of that place).
   // Everything is made live with Web Audio. A scene fades in over the old one when the wallpaper changes.
@@ -279,11 +295,14 @@ const SND = (() => {
   function startMusic() {
     if (started || !init()) return; started = true; buildScene(wantId); applyMusic(true);
   }
+  let wasOn = null;
+  const wantOn = () => !!(st.music && !st.hush && !st.spot && !st.hold && !st.muted && document.hasFocus() && !document.hidden);
   function applyMusic(fast) {
     if (!ctx) return;
-    const on = st.music && !st.hush && !st.spot && !st.hold && !st.muted && document.hasFocus() && !document.hidden;
+    const on = wantOn(); wasOn = on;
     musBus.gain.cancelScheduledValues(t0()); musBus.gain.setValueAtTime(musBus.gain.value, t0()); musBus.gain.setTargetAtTime(on ? st.musicVol * 0.9 : 0, t0() + (fast === true ? 0.15 : 0), on ? (fast === true ? 1.5 : 0.7) : 0.6);   // starts slowly and swells in, never pops
   }
+  setInterval(() => { try { if (ctx && wantOn() !== wasOn) applyMusic(); } catch (e) { /* ignore */ } }, 1000);   // v1064: the music follows the window's focus even when the focus event was missed (a console started by the installer never got one)
   window.addEventListener('focus', applyMusic); window.addEventListener('blur', applyMusic); document.addEventListener('visibilitychange', applyMusic);
   const unlock = () => { try { init(); if (ctx.state === 'suspended') ctx.resume(); startMusic(); } catch (e) { /* ignore */ } };
   ['pointerdown', 'keydown', 'gamepadconnected'].forEach((e) => window.addEventListener(e, unlock, { once: false, passive: true }));

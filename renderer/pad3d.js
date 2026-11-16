@@ -9,7 +9,8 @@
     mount(slot, back, intro) {
       if (!slot) return;
       A.slot = slot; A.back = !!back;
-      slot.innerHTML = '<div class="mp-sway"><div class="mp-card"><img class="mp-ph mp-phf" alt="" draggable="false" src="pad_front.png"><img class="mp-ph mp-phb" alt="" draggable="false" src="pad_back.png"></div></div>';
+      const ps = document.body.classList.contains('pad-ps'), F = ps ? 'omega.png' : 'pad_front.png', B = ps ? 'omega_back.png' : 'pad_back.png';
+      slot.innerHTML = '<div class="mp-sway"><div class="mp-card"><img class="mp-ph mp-phf" alt="" draggable="false" src="' + F + '"><img class="mp-ph mp-phb" alt="" draggable="false" src="' + B + '"></div></div>';
       A.card = slot.querySelector('.mp-card'); A.card.style.transform = rest(A.back);
       if (intro && A.card.animate) A.card.animate([{ transform: 'translateZ(-70px) rotateY(' + (A.back ? 180 : 0) + 'deg)' }, { transform: rest(A.back) }], { duration: 1000, easing: 'cubic-bezier(.2,.8,.2,1)' });
     },

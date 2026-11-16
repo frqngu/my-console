@@ -1,0 +1,45 @@
+UBISOFT GAMES IN THE CONSOLE - STEP BY STEP
+===========================================
+Do this once on a new PC. After that Ubisoft games work like the others.
+
+PART 1 - Install Ubisoft Connect (the launcher)
+  1. Go to ubisoft.com, search "Ubisoft Connect PC download", and install it.
+     Keep the default folder: C:\Program Files (x86)\Ubisoft\Ubisoft Game Launcher
+     (the console looks there; a different folder can stop it from finding the games).
+  2. Open Ubisoft Connect once and sign in. Tick "Keep me signed in" / "Stay online".
+  3. In Ubisoft Connect > Settings > Downloads, leave the game install folder on the
+     default (or note it). Close Ubisoft Connect; the console opens it by itself when needed.
+
+PART 2 - Sign in inside the console
+  1. Console > Settings (gear) > Library > "Ubisoft Connect: Sign in".
+  2. Press A on Email and on Password and type with the on-screen keyboard. The password goes only
+     to Ubisoft and is not stored.
+  3. If Ubisoft sends a verification code (email or app), type it when the console asks.
+  4. It says Signed in. Press "Rescan games".
+
+PART 3 - What you get
+  - Every Ubisoft game you OWN shows in the Library (installed or not).
+  - Installed ones are found by themselves (the console reads Ubisoft Connect's install list).
+  - Art and trailers come from the Steam page with the same game name, or YouTube, when the game has no Steam page.
+
+PART 4 - Installing a game
+  1. Open the game page and press Install.
+  2. Ubisoft Connect opens with its install window (the console starts it with the game's Ubisoft id).
+     If the console cannot find the id it opens Ubisoft Connect instead: find the game there and press Install.
+  3. Confirm the install window. Windows that Ubisoft opens are moved to your second monitor,
+     so the console stays on the main screen.
+  4. The game page shows "Installing" while the folder grows and says Play when done.
+  5. If it still says Install after finishing, press "Rescan games".
+
+PART 5 - Updates
+  - Steam games: the console shows Update and starts the update for you.
+  - Ubisoft games: Ubisoft Connect does the updating. The console cannot see that an update is NEEDED;
+    it shows "Updating" only once Ubisoft Connect has started downloading. To start one, press Play on the
+    game (Ubisoft Connect updates it first), or open Ubisoft Connect and let it update. The page says Play when done.
+
+IF SOMETHING DOES NOT WORK
+  - Game missing after Rescan: sign in again (Part 2), then Rescan. Ubisoft games in a non-default folder:
+    Library > Add game folder.
+  - Sign-in error: check the email/password on ubisoft.com first. If the code step fails, try again; codes expire fast.
+  - Install button only opens the launcher: that game's Ubisoft id was not found; press Install inside Ubisoft Connect.
+  - Send the file %APPDATA%\my-console\console.log (lines that start with "ubisoft") and a photo of the screen.

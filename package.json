@@ -25,7 +25,9 @@
       "!electron-dist/**",
       "!*.bat",
       "!tools/*.bat",
-      "!README.txt"
+      "!README.txt",
+      "!bridge-out/**",
+      "!bridge-src/**"
     ],
     "win": {
       "target": [
@@ -50,6 +52,12 @@
     "electronVersion": "34.5.8",
     "electronDist": "electron-dist",
     "afterPack": "build/after-pack.js",
-    "icon": "build/icon.png"
+    "icon": "build/icon.png",
+    "extraResources": [
+      {
+        "from": "bridge-out",
+        "to": "bridge"
+      }
+    ]
   }
 }

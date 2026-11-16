@@ -126,6 +126,11 @@ function sanitize(s) {
     profileSet: s.profileSet === true || /^avatar-[a-z0-9]+\.jpg$/.test(s.avatarFile || '') || (typeof s.profileName === 'string' && s.profileName.trim() !== ''),   // false only on a brand-new install: the console then asks for a name and picture first
     profileName: typeof s.profileName === 'string' && s.profileName.trim() ? s.profileName.trim().slice(0, 24) : 'Frankie',
     introVideo: /^startup-[a-z0-9]+\.(mp4|webm)$/.test(s.introVideo || '') ? s.introVideo : '',
+    introVideoPs: /^startup-[a-z0-9]+\.(mp4|webm)$/.test(s.introVideoPs || '') ? s.introVideoPs : '',   // v1091: the startup video used when a PlayStation controller is the one in use
+    lastPadKind: s.lastPadKind === 'ps' || s.lastPadKind === 'xbox' ? s.lastPadKind : '',
+    introSeed: /^v\d{1,6}$/.test(s.introSeed || '') ? s.introSeed : '',
+    signBgVideo: /^startup-[a-z0-9]+\.(mp4|webm)$/.test(s.signBgVideo || '') ? s.signBgVideo : '',   // v1241: your own looping video behind the sign-in page
+    padType: ['auto', 'xbox', 'ps'].includes(s.padType) ? s.padType : 'auto',
     avatarFile: /^avatar-[a-z0-9]+\.jpg$/.test(s.avatarFile || '') ? s.avatarFile : '',
     trailerSound: s.trailerSoundV === 2 ? s.trailerSound === true : true, trailerSoundV: 2,
     paddles: cleanPaddles(s.paddles),
@@ -961,13 +966,43 @@ async function launcherUpdateInfo(g) {   // Epic, Ubisoft, EA, GOG...: they publ
     return c.at && now - c.at < 25000 ? { needsUpdate: true, updating: true, updatePct: 0 } : { needsUpdate: false };
   } catch { return null; }
 }
-ipcMain.handle('game:updinfo', async (_e, gid) => { try { const l = loadLib(), g = l.games.find((x) => x.id === gid); if (!g || g.installed === false) return null; return g.steamId ? steamUpdateInfo(g, steamDirs(l.folders)) : await launcherUpdateInfo(g); } catch { return null; } });
+let epicLatest = { t: 0, map: null };
+async function epicLatestBuilds() {   // the newest build of every game you own, from the same Epic account the library sign-in uses (cached for ten minutes)
+  const now = Date.now(); if (epicLatest.map && now - epicLatest.t < 600000) return epicLatest.map;
+  const tok = await epicAccess(); if (!tok) return null;
+  const r = await fetch('https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/public/assets/Windows?label=Live', { headers: { Authorization: 'bearer ' + tok.access_token, 'User-Agent': EPIC_UA }, signal: T() });
+  if (!r.ok) return null;
+  const map = new Map(); for (const a of await r.json()) if (a && a.appName && a.buildVersion) map.set(a.appName, String(a.buildVersion));
+  epicLatest = { t: now, map }; return map;
+}
+function epicInstalledVersion(appName) {
+  try {
+    const dir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests');
+    for (const f of fs.readdirSync(dir).filter((x) => /\.item$/i.test(x))) { try { const m = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); if (m.AppName === appName) return String(m.AppVersionString || ''); } catch {} }
+  } catch {}
+  return '';
+}
+async function epicUpdateInfo(g) {   // Epic: installed version (the launcher's own manifest) against the newest build your account is offered, like Legendary does
+  try {
+    const app = String(g.id || '').replace(/^epic/, ''); if (!app) return null;
+    const have = epicInstalledVersion(app), map = await epicLatestBuilds(), want = map && map.get(app);
+    if (!have || !want) return null;
+    const grow = await launcherUpdateInfo(g);
+    if (grow && grow.updating) return grow;
+    return have !== want ? { needsUpdate: true, updating: false, updatePct: 0 } : { needsUpdate: false };
+  } catch { return null; }
+}
+ipcMain.handle('game:updinfo', async (_e, gid) => { try { const l = loadLib(), g = l.games.find((x) => x.id === gid); if (!g || g.installed === false) return null; if (g.steamId) return steamUpdateInfo(g, steamDirs(l.folders)); if (g.source === 'Epic Games') { const e = await epicUpdateInfo(g); if (e) return e; } return await launcherUpdateInfo(g); } catch { return null; } });
 ipcMain.handle('game:update', async (_e, gid) => {   // Steam starts the update itself when the game is started; the console stays on top and the launcher windows stay hidden
   try {
     const g = loadLib().games.find((x) => x.id === gid);
     if (!g) return { ok: false, error: 'Game not found.' };
+    if (g.source === 'Epic Games' && g.uri && /^com\.epicgames\.launcher:\/\//.test(g.uri)) {   // the Epic launcher updates the game when it is asked to start it
+      sideLaunchers(150); holdTop(8000, true); await ensureLauncher('Epic Games'); await shell.openExternal(g.uri);
+      return { ok: true, note: 'Epic is updating ' + g.title + '. It will say Play when it is done.' };
+    }
     if (!g.steamId || !/^\d+$/.test(String(g.steamId))) return { ok: true, note: g.title + ' is updating in ' + (g.source || 'its launcher') + '. It will say Play when it is done.' };
-    hideLaunchers(60); holdTop(8000, true);
+    sideLaunchers(150); holdTop(8000, true);
     await shell.openExternal('steam://rungameid/' + g.steamId);
     return { ok: true, note: 'Steam is updating ' + g.title + '.' };
   } catch (e) { return { ok: false, error: e.message }; }
@@ -1141,9 +1176,11 @@ async function scanAll(l) {
   }
   const have = new Set(found.map((g) => g.id));
   for (const g of await steamOwned()) if (!have.has(g.id)) { found.push(g); have.add(g.id); }
+  if (!l.ubiRestore) { l.excluded = (l.excluded || []).filter((id) => !/^ubi/.test(id) && !/-ubisoftconnect$/.test(id)); l.ubiRestore = 1; }   // v1087: Ubisoft games removed while the list was being sorted out come back once
   const owned = await accountGames(l);
   for (const g of owned) { const f = found.find((x) => x.id === g.id); if (f && g.source === 'Ubisoft Connect' && g.title) f.title = g.title; }   // installed Ubisoft games get their real name
   for (const g of owned) {
+    if (g.ubiSpace) { const n3 = (t) => ubiNorm(t).replace(/^tomclancys?/, ''); if (found.some((x) => x.source !== 'Ubisoft Connect' && n3(x.title) === n3(g.title))) continue; }   // v1085: bought on Steam/Epic: it is already listed there
     if (g.ubiSpace) { const f = found.find((x) => x.source === 'Ubisoft Connect' && x.id !== g.id && ubiNorm(x.title).replace(/^tomclancys?/, '') === ubiNorm(g.title).replace(/^tomclancys?/, '')); if (f) continue; }   // already there as an installed game
     if (!have.has(g.id)) { found.push(g); have.add(g.id); }
   }
@@ -1456,19 +1493,50 @@ ipcMain.handle('avatar:save', (_e, dataUrl) => {
 ipcMain.handle('avatar:clear', () => { const cur = loadSettings(); dropAvatar(cur.avatarFile); return saveSettings({ ...cur, avatarFile: '' }); });
 const VIDEO_RE = /^startup-[a-z0-9]+\.(mp4|webm)$/;
 function dropVideo(name) { if (VIDEO_RE.test(name || '')) { try { fs.unlinkSync(path.join(themeDir(), name)); } catch {} } }
-ipcMain.handle('introvideo:pick', async () => {   // your own video file, copied next to the console's other data; nothing is downloaded or bundled
-  const r = await dialog.showOpenDialog(win, { title: 'Choose a startup video', properties: ['openFile'], filters: [{ name: 'Video', extensions: ['mp4', 'webm'] }] });
+ipcMain.handle('introvideo:pick', async (_e, kind) => {   // your own video file, copied next to the console's other data; nothing is downloaded or bundled
+  const key = kind === 'bg' ? 'signBgVideo' : kind === 'ps' ? 'introVideoPs' : 'introVideo';
+  const r = await dialog.showOpenDialog(win, { title: kind === 'bg' ? 'Choose a looping video for the sign-in page' : kind === 'ps' ? 'Choose a startup video for the PlayStation controller' : 'Choose a startup video', properties: ['openFile'], filters: [{ name: 'Video', extensions: ['mp4', 'webm'] }] });
   if (r.canceled || !r.filePaths[0]) return null;
   try {
-    if (fs.statSync(r.filePaths[0]).size > 300 * 1024 * 1024) return { error: 'That video is larger than 300 MB.' };
+    if (fs.statSync(r.filePaths[0]).size > (kind === 'bg' ? 8192 : 300) * 1024 * 1024) return { error: kind === 'bg' ? 'That video is larger than 8 GB.' : 'That video is larger than 300 MB.' };
     const ext = path.extname(r.filePaths[0]).toLowerCase() === '.webm' ? 'webm' : 'mp4';
-    const name = 'startup-' + Date.now().toString(36) + '.' + ext, cur = loadSettings();
+    const name = 'startup-' + (kind === 'bg' ? 'bg' : '') + Date.now().toString(36) + '.' + ext, cur = loadSettings();
     await fs.promises.copyFile(r.filePaths[0], path.join(themeDir(), name));
-    dropVideo(cur.introVideo);
-    return { settings: saveSettings({ ...cur, introVideo: name }) };
+    dropVideo(cur[key]);
+    return { settings: saveSettings({ ...cur, [key]: name }) };
   } catch (e) { log('intro video failed: ' + e.message); return { error: 'Could not use that video.' }; }
 });
-ipcMain.handle('introvideo:clear', () => { const cur = loadSettings(); dropVideo(cur.introVideo); return saveSettings({ ...cur, introVideo: '' }); });
+ipcMain.handle('introvideo:clear', (_e, kind) => { const key = kind === 'bg' ? 'signBgVideo' : kind === 'ps' ? 'introVideoPs' : 'introVideo', cur = loadSettings(); dropVideo(cur[key]); return saveSettings({ ...cur, [key]: '' }); });
+function seedIntroVideos() {
+  try {
+    const SEED = 'v1262', src = path.join(__dirname, 'intro'), cur = loadSettings();
+    if (!fs.existsSync(src)) return;
+    for (const f of ['startup-xbox.mp4', 'startup-ps5.mp4', 'startup-ps5loop.mp4', 'startup-psaudio.mp4', 'startup-pssfx.mp4']) { const a = path.join(src, f), b = path.join(themeDir(), f); if (fs.existsSync(a) && (!fs.existsSync(b) || fs.statSync(b).size !== fs.statSync(a).size)) fs.copyFileSync(a, b); try { fs.unlinkSync(path.join(themeDir(), f.replace(/\.mp4$/, '.hd.mp4'))); } catch {} }
+    if (cur.introSeed === SEED) return;
+    if (cur.introVideo && cur.introVideo !== 'startup-xbox.mp4') dropVideo(cur.introVideo);
+    saveSettings({ ...cur, introVideo: 'startup-xbox.mp4', introVideoPs: cur.introVideoPs === 'startup-ps5.mp4' ? '' : cur.introVideoPs, introSeed: SEED });   // the PS5 video is the sign-in page background, not an intro
+    log('startup videos: Xbox intro set, PS5 video is the sign-in background');
+  } catch (e) { log('startup videos: ' + e.message); }
+}
+// v1091: which kind of controller is plugged in (PlayStation or Xbox), found from its USB / Bluetooth vendor id, so the right startup video and menu are ready before the console opens
+let padKindNow = '', padKindP = null;
+function detectPadKind() {
+  if (padKindP) return padKindP;
+  padKindP = new Promise((res) => {
+    if (process.platform !== 'win32') return res('');
+    const ps = "Get-CimInstance Win32_PnPEntity -Filter \"PNPDeviceID LIKE '%VID_054C%' OR PNPDeviceID LIKE '%VID&0002054C%' OR PNPDeviceID LIKE '%VID&0001054C%' OR PNPDeviceID LIKE '%VID_045E%' OR PNPDeviceID LIKE '%VID_1B1C%' OR Name LIKE '%Xbox%' OR Name LIKE '%DualSense%' OR Name LIKE '%DualShock%' OR Name LIKE '%controller%' OR Name LIKE '%gamepad%'\" -ErrorAction SilentlyContinue | ForEach-Object { $_.PNPClass + '|' + $_.PNPDeviceID + '|' + $_.Name }";
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, timeout: 8000 }, (err, out) => {
+      const L = String(out || '').split(/\r?\n/).filter(Boolean);
+      const C = L.filter((x) => /controller|gamepad|joystick|HIDClass|XnaComposite|scuf|dualsense|playstation|VID[_&](0001|0002)?(054C|1B1C)/i.test(x));   // phones, mice and keyboards are left out of the check
+      const hasPs = C.some((x) => /VID[_&](0001|0002)?054C|VID_1B1C&PID_3A28|dualsense|dualshock|playstation|ps5|ps4|scuf/i.test(x)), hasXb = C.some((x) => /VID[_&](0001|0002)?045E|xbox/i.test(x));
+      log('controller check: ' + (C.length ? C.slice(0, 14).map((x) => x.slice(0, 120)).join(' ; ') : (err ? 'failed: ' + err.message : 'nothing found')));
+      res(hasPs && !hasXb ? 'ps' : hasXb && !hasPs ? 'xbox' : hasPs ? 'ps' : '');
+    });
+  }).then((k) => { padKindNow = k; padKindP = null; return k; });
+  return padKindP;
+}
+ipcMain.handle('pad:kind', async () => padKindNow || await detectPadKind());
+ipcMain.handle('pad:recheck', async () => { const k = await detectPadKind(); return k; });
 // ---- trailers: a video file you add yourself for each game (copied next to the other console data) ----
 const TRAILER_RE = /^trailer-[a-z0-9]+\.(mp4|webm)$/;
 function dropTrailer(name) { if (TRAILER_RE.test(name || '')) { try { fs.unlinkSync(path.join(themeDir(), name)); } catch {} } }
@@ -1809,8 +1877,8 @@ function steamUpdateInfo(g, dirs) {   // Steam writes "update needed / updating"
 }
 function decorate(l) { let sd = null; try { sd = steamDirs(l.folders); } catch {} return l.games.map((g) => { const m = (l.meta || {})[g.id] || {}; const o = { ...m, ...g, image: g.image || m.image }; if (o.installed !== false && sd && sd.length && !steamStillInstalled(g, sd)) o.installed = false; if (o.installed !== false && sd && sd.length) { const u = steamUpdateInfo(g, sd); if (u) Object.assign(o, u); } const d = DESC_OVERRIDE[norm(coverTitle ? coverTitle(g.title) : g.title)]; if (d) o.description = d; { const co = COMPANY_OVERRIDE[norm(coverTitle ? coverTitle(g.title) : g.title)]; if (co) Object.assign(o, co); } if (RELEASE_OVERRIDE[norm(coverTitle ? coverTitle(g.title) : g.title)]) o.released = RELEASE_OVERRIDE[norm(coverTitle ? coverTitle(g.title) : g.title)]; const sp = (typeof steamPlay !== 'undefined' && g.steamId) ? steamPlay[String(g.steamId)] : null; if (sp) { if (sp.m) o.playSeconds = Math.max(o.playSeconds || 0, sp.m * 60); if (sp.t) o.lastPlayed = Math.max(o.lastPlayed || 0, sp.t * 1000); } return o; }); }
 function mergeManual(l, list) {
-  const ids = new Set(list.map((g) => g.id)), titles = new Set(list.filter((g) => !g.manual).map((g) => norm(g.title)));
-  for (const m of l.manual || []) if (!ids.has(m.id) && !titles.has(norm(m.title))) list.push({ ...m });
+  const ids = new Set(list.map((g) => g.id)), n2 = (t) => norm(t).replace(/^tomclancys?/, ''), titles = new Set(list.filter((g) => !g.manual).map((g) => n2(g.title)));   // v1085: "Tom Clancy's X" and "X" are the same game
+  for (const m of l.manual || []) if (!ids.has(m.id) && !titles.has(n2(m.title))) list.push({ ...m });
   return list;
 }
 // CATALOG-HELPERS-END
@@ -1951,10 +2019,7 @@ const epicCodeFromPage = async (u, w) => {
 };
 const UBI_LOGIN = 'https://connect.ubisoft.com/login?appId=b8fde481-327d-4031-85ce-7c10a202a700&genomeId=fbd6791c-a6c6-4206-a75e-77234080b87b&lang=en-US&nextUrl=https:%2F%2Fconnect.ubisoft.com%2Fready';
 const ubiLoginRead = async (u, w) => {   // Ubisoft's own login page; once it lands on /ready the site has saved your sign-in in its page storage, which is read here
-  if (/^https:\/\/connect\.ubisoft\.com\/login/.test(u)) {   // Ubisoft's bot protection can block a network for a while: say so instead of leaving a blank page
-    try { const t = await w.webContents.executeJavaScript('document.body ? document.body.innerText.slice(0, 600) : ""'); if (/temporarily restricted|unusual activity/i.test(t)) throw new Error('Ubisoft is blocking this network for a while ("Access is temporarily restricted"). Try again later, or from another network.'); } catch (e) { if (/Ubisoft is blocking/.test(e.message)) throw e; }
-    return undefined;
-  }
+  if (/^https:\/\/connect\.ubisoft\.com\/login/.test(u)) return undefined;   // v1077: nothing at all is run inside Ubisoft's login page while you sign in (a script injected the moment the page loaded is what bot protection looks for); the console only reads the result after you are signed in
   if (!/^https:\/\/connect\.ubisoft\.com\/(ready|change_domain)/.test(u)) return undefined;
   const wc = w.webContents;
   let raw = null; try { raw = await wc.executeJavaScript("JSON.stringify({a:localStorage.getItem('PRODloginData'),b:localStorage.getItem('PRODrememberMe'),c:localStorage.getItem('PRODlastProfile')})"); } catch {}
@@ -2116,7 +2181,7 @@ ipcMain.handle('ubi:code', async (_e, code) => {
 });
 async function ubiTicket() {
   const t = getTok('ubisoft'); if (!t || !t.rm) throw new Error('Signed out. Sign in again.');
-  let j; try { j = await ubiPost({ Authorization: 'rm_v1 t=' + t.rm }); } catch (e) { if (/Wrong email|failed \(40[13]/.test(e.message)) { setTok('ubisoft', null); throw new Error('Signed out. Sign in again.'); } throw e; }
+  let j; try { j = await ubiPost({ Authorization: 'rm_v1 t=' + t.rm }); } catch (e) { if (/Wrong email/.test(e.message)) { setTok('ubisoft', null); throw new Error('Signed out. Sign in again.'); } throw e; }
   if (!j.ticket) throw new Error('Ubisoft gave no session ticket.');
   if (j.rememberMeTicket) setTok('ubisoft', { rm: j.rememberMeTicket, uid: j.userId || t.uid });
   return j.ticket;
@@ -2201,15 +2266,42 @@ async function ubiClubOwned() {   // the Ubisoft Club's own game list (the same 
   return out;
 }
 let ubiFailAt = 0, ubiFailMsg = '';
+
+async function ubiProbe(ticket, sid) {   // v1084: log how Ubisoft's other web services answer this sign-in (diagnosis; the first one that lists games is used)
+  const ids = [UBI_CLUB, 'f35adcb5-1911-440c-b1c9-48fdc1701c68', '314d4fef-e568-454a-ae06-43e3bece12a6'];
+  const q = 'query AllGames { viewer { id ...ownedGamesList } } fragment gameProps on Game { id spaceId name } fragment ownedGameProps on Game { ...gameProps viewer { meta { id ownedPlatformGroups { id name type } } } } fragment ownedGamesList on User { ownedGames: games(filterBy: {isOwned: true}) { totalCount nodes { ...ownedGameProps } } }';
+  for (const id of ids) {
+    const H = { 'Content-Type': 'application/json', Accept: '*/*', 'User-Agent': UBI_CHROME, 'Ubi-AppId': id, Origin: 'https://connect.ubisoft.com', Referer: 'https://connect.ubisoft.com', Authorization: 'Ubi_v1 t=' + ticket, 'Ubi-SessionId': sid || '' };
+    try {
+      const r = await fetch('https://public-ubiservices.ubi.com/v1/profiles/me/uplay/graphql', { method: 'POST', signal: T(), headers: H, body: JSON.stringify({ operationName: 'AllGames', variables: { owned: true }, query: q }) });
+      const t = await r.text(); log('ubisoft probe graphql app ' + id.slice(0, 8) + ': ' + r.status + ' ' + t.slice(0, 160).replace(/\s+/g, ' '));
+      let d = {}; try { d = JSON.parse(t); } catch {}
+      const nodes = (((d.data || {}).viewer || {}).ownedGames || {}).nodes;
+      if (Array.isArray(nodes) && nodes.length) {
+        const out = [], seen = new Set();
+        for (const g of nodes) { const plats = ((((g.viewer || {}).meta || {}).ownedPlatformGroups) || []).flat().map((p) => p && p.type || ''); log('ubisoft owned node: ' + g.name + ' | ' + JSON.stringify(((g.viewer || {}).meta || {}).ownedPlatformGroups || []).slice(0, 160)); if (plats.length && !plats.includes('PC')) continue; const name = String(g.name || '').replace(/[™®©]/g, '').replace(/_/g, ' ').trim(), sp = String(g.spaceId || g.id || ''); if (!name || !sp || seen.has(sp)) continue; seen.add(sp); out.push({ id: 'ubi' + sp, title: name, source: 'Ubisoft Connect', ubiId: '', ubiSpace: sp, installed: false }); }
+        if (out.length) return out;
+      }
+    } catch (e) { log('ubisoft probe graphql app ' + id.slice(0, 8) + ' failed: ' + e.message); }
+    try {
+      const r = await fetch('https://public-ubiservices.ubi.com/v1/profiles/me/gamesplayed', { signal: T(), headers: H });
+      const t = await r.text(); log('ubisoft probe gamesplayed app ' + id.slice(0, 8) + ': ' + r.status + ' ' + t.slice(0, 160).replace(/\s+/g, ' '));
+    } catch (e) { log('ubisoft probe gamesplayed app ' + id.slice(0, 8) + ' failed: ' + e.message); }
+  }
+  return null;
+}
 async function ubisoftOwned() {
   if (Date.now() - ubiFailAt < 10 * 60000) throw new Error(ubiFailMsg);   // after a refusal Ubisoft is left alone for ten minutes (hammering it makes its bot protection block this PC)
-  try { const c = await ubiClubOwned(); if (c.length) return c; throw new Error('Ubisoft Club listed no PC games'); } catch (e) { log('ubisoft club list failed: ' + e.message); ubiFailAt = Date.now(); ubiFailMsg = e.message; throw e; }
-  const ticket = await ubiTicket();
+  let clubErr = '';
+  try { const c = await ubiClubOwned(); if (c.length) return c; clubErr = 'Ubisoft Club listed no PC games'; } catch (e) { clubErr = e.message; log('ubisoft club list failed: ' + e.message); }   // v1080: Ubisoft has switched its Club list off for sign-ins like this one, so the connection service (what the Ubisoft Connect app itself uses) is tried next
+  const tk0 = getTok('ubisoft'); let ticket = '';
+  try { ticket = (tk0 && tk0.tk) || await ubiTicket(); } catch (e) { log('ubisoft ticket: ' + e.message); ubiFailAt = Date.now(); ubiFailMsg = clubErr || e.message; throw new Error(clubErr || e.message); }
+  try { const pr = await ubiProbe(ticket, (tk0 && tk0.sid) || ''); if (pr && pr.length) { log('ubisoft owned (probe): ' + pr.length + ' games'); return pr; } } catch (e) { log('ubisoft probe: ' + e.message); }
   let list = null, lastE = null;
   for (const v of [0, 1, 2]) {   // the same request in a few spellings, in case Ubisoft is strict about one of them
-    try { list = await ubiDemux(ticket, v); log('ubisoft demux ok with variant ' + v); break; } catch (e) { lastE = e; log('ubisoft demux variant ' + v + ' failed: ' + e.message + ' (step ' + e.step + ', ' + e.rx + ' bytes received)'); if (!/closed the connection/.test(e.message)) break; }
+    try { list = await ubiDemux(ticket, v); log('ubisoft demux ok with variant ' + v); break; } catch (e) { lastE = e; log('ubisoft demux variant ' + v + ' failed: ' + e.message + ' (step ' + e.step + ', ' + e.rx + ' bytes received)'); await new Promise((r) => setTimeout(r, 700)); }
   }
-  if (!list) throw new Error((lastE && lastE.message || 'Ubisoft did not answer') + ' (step ' + (lastE && lastE.step) + ', ' + (lastE && lastE.rx) + ' bytes)');
+  if (!list) { const msg = (lastE && lastE.message || 'Ubisoft did not answer') + ' (step ' + (lastE && lastE.step) + ', ' + (lastE && lastE.rx) + ' bytes)'; ubiFailAt = Date.now(); ubiFailMsg = msg; throw new Error(msg); }
   const seen = new Set(), out = [];
   for (const g of list) {
     if (g.type !== 0 || g.owned === 0 || !g.cfg) continue;
@@ -2224,7 +2316,7 @@ async function ubisoftOwned() {
 async function accountGames(l) {
   l.owned = l.owned || {}; lastErrors = [];
   for (const [name, fn] of [['steam', steamWebOwned], ['epic', epicOwned], ['ubisoft', ubisoftOwned]]) {
-    if (!getTok(name)) { delete l.owned[name]; continue; }
+    if (!getTok(name)) { delete l.owned[name]; log(name + ' library skipped: not signed in'); continue; }
     try { l.owned[name] = await fn(); } catch (e) { log(name + ' library failed: ' + e.message); lastErrors.push(name + ': ' + e.message); }   // keeps the last good list
   }
   return [].concat(l.owned.steam || [], l.owned.epic || [], l.owned.ubisoft || []);
@@ -2234,7 +2326,25 @@ ipcMain.handle('acct:login', async (_e, p) => {
   try {
     if (p === 'steam') { await steamLogin(); setTok('steam', { at: Date.now() }); }
     else if (p === 'epic') setTok('epic', await epicToken({ grant_type: 'authorization_code', code: await webLogin(EPIC_LOGIN, epicCodeFromPage) }));
-    else if (p === 'ubisoft') { const d = await webLogin(UBI_LOGIN, ubiLoginRead); setTok('ubisoft', { rm: d.rememberMeTicket || '', tk: d.ticket || '', sid: d.sessionId || '', uid: d.userId || '', club: 1 }); }
+    else if (p === 'ubisoft') {
+      // v1078: Ubisoft's bot protection refuses the console's built-in browser, so you sign in with your normal browser (where it works) and send the result across with one bookmark
+      const { clipboard } = require('electron');
+      const BM = "javascript:(async()=>{try{var o={a:localStorage.getItem('PRODloginData'),b:localStorage.getItem('PRODrememberMe'),c:localStorage.getItem('PRODlastProfile')};if(!o.a&&!o.b){alert('Not signed in to Ubisoft here yet.');return}var t='MYCONSOLE-UBI:'+btoa(unescape(encodeURIComponent(JSON.stringify(o))));var x=document.createElement('textarea');x.value=t;x.style.position='fixed';x.style.opacity='0';document.body.appendChild(x);x.focus();x.select();var k=false;try{k=document.execCommand('copy')}catch(e){}x.remove();if(!k)await navigator.clipboard.writeText(t);alert('Copied '+t.length+' characters. Go back to the console and press Continue.')}catch(e){alert('Could not copy: '+e.message)}})()";
+      clipboard.writeText(BM); shell.openExternal(UBI_LOGIN).catch(() => {});
+      try { win.minimize(); } catch {}   // so your browser is in front
+      const r = await dialog.showMessageBox({ type: 'info', title: 'Sign in to Ubisoft', buttons: ['Continue', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true,
+        message: 'Sign in to Ubisoft in your normal browser',
+        detail: 'Ubisoft blocks the console\'s built-in browser, so do this once:\n\n1. Sign in on the Ubisoft page that just opened in your browser. It may end on a "page cannot be found" message: that is normal, stay on it.\n2. On that page press Ctrl+D to add a bookmark, name it "Send to console", click More or Edit, delete its web address and paste (Ctrl+V). The code is already copied for you.\n3. Click that bookmark while you are on the Ubisoft page. It says "Copied".\n4. Come back here and press Continue.\n\nThe bookmark only reads your Ubisoft sign-in on that page and puts it on your clipboard.' });
+      try { win.restore(); win.focus(); } catch {}
+      if (r.response !== 0) return { ok: false, error: 'Sign-in cancelled.' };
+      let txt = ''; try { txt = String((await clipboard.readText()) || ''); } catch {}
+      log('ubisoft clipboard: ' + txt.length + ' chars, starts ' + JSON.stringify(txt.slice(0, 14))); if (!/^MYCONSOLE-UBI:/.test(txt)) return { ok: false, error: 'Nothing copied yet. Sign in, click the "Send to console" bookmark on the Ubisoft page, then try again.' };
+      let d = null;
+      try { const r0 = JSON.parse(Buffer.from(txt.slice(14), 'base64').toString('utf8')); const a = JSON.parse(r0.a || 'null') || {}, c = JSON.parse(r0.c || 'null') || {}, b = r0.b ? String(r0.b).replace(/^"|"$/g, '') : ''; d = { ticket: a.ticket, sessionId: a.sessionId, userId: a.userId || c.userId, rememberMeTicket: a.rememberMeTicket || b }; } catch {}
+      try { await clipboard.clear(); } catch {}
+      if (!d || !(d.rememberMeTicket || d.ticket)) return { ok: false, error: 'That did not hold a Ubisoft sign-in. Make sure you are signed in on the Ubisoft page.' };
+      setTok('ubisoft', { rm: d.rememberMeTicket || '', tk: d.ticket || '', sid: d.sessionId || '', uid: d.userId || '', club: 1 }); log('ubisoft sign-in: signed in through the normal browser');
+    }
     else if (p === 'gog') setTok('gog', await gogToken({ grant_type: 'authorization_code', redirect_uri: GOG_REDIRECT, code: await loginFlow(GOG_LOGIN, gogCodeFromUrl) }));
     else return { ok: false, error: 'Unknown platform.' };
     return { ok: true };
@@ -2382,6 +2492,7 @@ function onHelperLine(l) {
   else if (l.startsWith('ext ')) { const v = l.slice(4); if (v === 'gone') { if (win) takeBack(); } else if (/^\d+$/.test(v)) { extHwnd = v; appHandoff(); } }
   else if (l === 'btn a') { if (win) win.webContents.send('intro:a'); }
   else if (l === 'pad 1' || l === 'pad 0') { xpad = l === 'pad 1'; if (win && !win.isDestroyed()) win.webContents.send('pad', xpad);
+    if (xpad) detectPadKind().then((k) => { if (k && win && !win.isDestroyed()) win.webContents.send('padkind', k); }).catch(() => {});
     if (xpad) { padSeen = true; clearTimeout(padOffT); padOffT = null; if (quitT) { clearTimeout(quitT); quitT = null; fadeWin(1, 400); if (win) win.webContents.send('poweroff', 0); } }
     // (the controller switching off no longer closes the console: it is closed from the Xbox menu, Power > Exit)
   }
@@ -3251,18 +3362,19 @@ ipcMain.handle('covers:xbox', async (_e, items) => {   // the real Xbox / Micros
       const key0 = xbNorm(it.title); if (!key0) continue; const key = ({ overwatch2: 'overwatch' })[key0] || key0;
       const known = map[key];
       if (known && known.f && /^ws-\d{1,12}\.jpg$/.test(known.f) && fs.existsSync(path.join(themeDir(), known.f)) && !(key === 'fortnite' && !map.fnv3)) { out[it.id] = known.f; continue; }   // Fortnite's square is fetched once more (its Xbox art changed)
-      if (known && !known.f && Date.now() - (known.t || 0) < 7 * 86400000) continue;   // not on Xbox: do not ask again for a week
+      if (known && !known.f && known.v === 2 && Date.now() - (known.t || 0) < 7 * 86400000) continue;   // not on Xbox: do not ask again for a week
       let pid = '', icon = '', rawT = '';
       const extraOk = (s) => { let t = s; for (const w of ['standardedition', 'deluxeedition', 'ultimateedition', 'premiumedition', 'definitiveedition', 'completeedition', 'goldedition', 'gameoftheyearedition', 'gameoftheyear', 'goty', 'remastered', 'enhanced', 'edition', 'digital', 'forxboxseriesxs', 'forxboxone', 'xboxseriesxs', 'xboxone', 'forwindows', 'windows', 'pc', 'thegame', 'game']) t = t.split(w).join(''); return t === ''; };
       const t0 = it.title.replace(/[®™]/g, '').trim();
-      const queries = [...new Set([t0, t0.replace(/\s+/g, '_'), t0.replace(/\s+\d+$/, '').trim(), t0.split(/[:–-]/)[0].trim(), t0.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).slice(0, 2).join(' ')].filter((s) => s && s.length > 1))];   // the Store's search is picky (it knows "WATCH_DOGS" but not always "Watch Dogs 2"), so a few spellings are tried
+      const queries = [...new Set([t0, "Tom Clancy's " + t0, t0.replace(/\s+/g, '_'), t0.replace(/\s+\d+$/, '').trim(), t0.split(/[:–-]/)[0].trim(), t0.replace(/[^A-Za-z0-9 ]/g, '').split(/\s+/).slice(0, 2).join(' ')].filter((s) => s && s.length > 1))];   // the Store's search is picky (it knows "WATCH_DOGS" but not always "Watch Dogs 2"), so a few spellings are tried
       for (const plat of ['Windows.Xbox', 'Windows.Desktop']) {   // answer shape (checked live): { Results: [ { Products: [ { ProductId, Title, Type, Width, Height, ImageType, Icon } ] } ] }
         let best = null;
         for (const qq of queries) {
           const q = new URLSearchParams({ query: qq, platformdependencyname: plat, productFamilyNames: 'Games,Apps', topProducts: '8', languages: 'en-US', market: 'US' });
           let cand = []; try { const j = await jget('https://displaycatalog.mp.microsoft.com/v7.0/productFamilies/autosuggest?' + q.toString()); cand = ((j && j.Results) || []).flatMap((r) => r.Products || []).filter((p) => p && p.ProductId && (it.exact ? p.Type === 'Application' : p.Type === 'Game')).map((p) => ({ id: p.ProductId, raw: String(p.Title || ''), n: xbNorm(p.Title), icon: ((p.Width || 0) >= 600 && Math.abs((p.Width || 1) / (p.Height || 1) - 1) < 0.06) ? p.Icon : '' })).filter((c) => c.n); } catch (e) { log('xbox search failed for ' + it.title + ': ' + (e && e.message)); }
-          best = cand.find((c) => c.n === key);
-          if (!best) { const near = cand.filter((c) => it.exact ? c.n.startsWith(key) : ((c.n.startsWith(key) && extraOk(c.n.slice(key.length))) || (key.startsWith(c.n) && extraOk(key.slice(c.n.length))))).sort((a, b) => a.n.length - b.n.length); best = near[0]; }
+          const sT = (x) => String(x).replace(/^tomclancys/, ''), key2 = sT(key);   // v1085: Ubisoft lists "Ghost Recon Breakpoint", the Xbox Store "Tom Clancy's Ghost Recon Breakpoint"
+          best = cand.find((c) => c.n === key || sT(c.n) === key2);
+          if (!best) { const near = cand.filter((c) => { const cn = sT(c.n); return it.exact ? c.n.startsWith(key) : ((cn.startsWith(key2) && extraOk(cn.slice(key2.length))) || (key2.startsWith(cn) && extraOk(key2.slice(cn.length)))); }).sort((a, b) => a.n.length - b.n.length); best = near[0]; }
           if (best) break;
         }
         if (best) { pid = best.id; icon = best.icon; rawT = best.raw; break; }
@@ -3298,7 +3410,7 @@ ipcMain.handle('covers:xbox', async (_e, items) => {   // the real Xbox / Micros
       }
       log('xbox cover for "' + it.title + '": ' + (file ? 'ok -> "' + rawT + '"' : pid ? 'matched "' + rawT + '" but the image would not load' : 'no good match on Xbox'));
       if (!file && known && known.f) file = known.f; if (key === 'fortnite') map.fnv3 = 1;
-      map[key] = { f: file, t: Date.now() }; dirty = true; if (file) out[it.id] = file;
+      map[key] = { f: file, t: Date.now(), v: 2 }; dirty = true; if (file) out[it.id] = file;
     } catch {}
   }
   if (dirty) { try { fs.writeFileSync(mapF, JSON.stringify(map)); } catch {} }
@@ -3354,10 +3466,15 @@ ipcMain.handle('applogo:get', async (_e, id) => {
   return '';
 });
 const steamIdCache = new Map();
+const steamIdFile = () => path.join(app.getPath('userData'), 'steam-ids.json');   // v1074: remembered between runs, so a game's logo is found at once instead of asking the Steam store every start
+let steamIdLoaded = false;
 ipcMain.handle('steam:appid', async (_e, title) => {   // the Steam page of a game that is not installed through Steam, found by its name (used for its logo)
+  if (!steamIdLoaded) { steamIdLoaded = true; try { for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(steamIdFile(), 'utf8')))) if (/^\d+$/.test(String(v)) && !steamIdCache.has(k)) steamIdCache.set(k, String(v)); } catch {} }
   const t = String(title || '').slice(0, 120); if (!t) return '';
   if (steamIdCache.has(t)) return steamIdCache.get(t);
-  const id = await steamAppFor({ title: t }); steamIdCache.set(t, id || ''); return id || '';
+  const id = await steamAppFor({ title: t }); steamIdCache.set(t, id || '');
+  if (id) { try { const o = {}; for (const [k, v] of steamIdCache) if (v) o[k] = v; fs.writeFileSync(steamIdFile(), JSON.stringify(o)); } catch {} }
+  return id || '';
 });
 
 // ---- Epic Games: the store's own transparent logo ("ProductLogo") for a game, found by its title ----
@@ -3467,7 +3584,7 @@ ipcMain.handle('heroes:store', async (_e, items) => {   // games that are not on
       }
       const known = map[key];
       if (known && known.f && /^wh-\d{1,12}\.jpg$/.test(known.f) && fs.existsSync(path.join(themeDir(), known.f))) { out[it.id] = known.f; continue; }
-      if (known && !known.f && Date.now() - (known.t || 0) < 7 * 86400000) continue;
+      if (known && !known.f && known.v === 2 && Date.now() - (known.t || 0) < 7 * 86400000) continue;
       const t0 = it.title.replace(/[®™]/g, '').trim();
       const queries = [...new Set([t0, t0.replace(/\s+/g, '_'), t0.replace(/\s+/g, '_').toUpperCase(), t0.replace(/(\D)\s*(\d)$/, '$1®$2'), t0.split(/[:–-]/)[0].trim()].filter((s) => s && s.length > 1))];
       let pid = '', rawT = '';
@@ -3495,7 +3612,7 @@ ipcMain.handle('heroes:store', async (_e, items) => {   // games that are not on
         }
       }
       log('store hero for "' + it.title + '": ' + (file ? 'ok -> "' + rawT + '"' : pid ? 'matched "' + rawT + '" but no wide picture' : 'no match'));
-      map[key] = { f: file, t: Date.now() }; dirty = true; if (file) out[it.id] = file;
+      map[key] = { f: file, t: Date.now(), v: 2 }; dirty = true; if (file) out[it.id] = file;
     } catch {}
   }
   if (dirty) { try { fs.writeFileSync(mapF, JSON.stringify(map)); } catch {} }
@@ -4347,6 +4464,19 @@ ipcMain.handle('cap:list', () => {
   try { const d = capDir(); return fs.readdirSync(d).filter((f) => /\.(png|jpg|jpeg|mp4|webm)$/i.test(f)).map((f) => { const st = fs.statSync(path.join(d, f)); return { name: f, url: 'ctheme://cap/' + encodeURIComponent(f), t: st.mtimeMs, size: st.size, video: /\.(mp4|webm)$/i.test(f) }; }).sort((a, b) => b.t - a.t).slice(0, 400); } catch { return []; }
 });
 ipcMain.handle('cap:del', async (_e, name) => { try { if (typeof name !== 'string' || /[\\/]/.test(name)) return false; await shell.trashItem(path.join(capDir(), name)); return true; } catch { return false; } });
+function bridgeRun() { try { const script = path.join(__dirname, 'native', 'bridge-setup.ps1'), bundled = path.join(process.resourcesPath || '', 'bridge'), hasB = fs.existsSync(path.join(bundled, 'ScufDualSense.exe')); const args = `-NoProfile -ExecutionPolicy Bypass -File "${script}" -Pause` + (hasB ? ` -Bundled "${bundled}"` : ''); spawn('powershell.exe', ['-NoProfile', '-Command', `Start-Process powershell.exe -Verb RunAs -ArgumentList '${args.replace(/'/g, "''")}'`], { windowsHide: true, detached: true, stdio: 'ignore' }).unref(); log('controller bridge setup opened (bundled: ' + hasB + ')'); return { ok: true, bundled: hasB }; } catch (e) { log('bridge setup failed: ' + e.message); return { ok: false }; } }
+ipcMain.handle('bridge:install', () => bridgeRun());
+function bridgeFirstRun() {   // the installed console offers the controller bridge once, by itself: one Windows admin prompt, then it installs and starts at every sign-in
+  try {
+    if (process.platform !== 'win32') return;
+    const pd = process.env.ProgramData || 'C:\\ProgramData', flag = path.join(app.getPath('userData'), 'bridge-offered.txt');
+    if (fs.existsSync(path.join(pd, 'ConsoleBridge', 'installed.txt')) || fs.existsSync(flag)) return;
+    if (!fs.existsSync(path.join(process.resourcesPath || '', 'bridge', 'ScufDualSense.exe'))) return;   // only the installed build carries the bridge
+    fs.writeFileSync(flag, new Date().toISOString());
+    log('controller bridge: first start, setting it up'); bridgeRun();
+  } catch (e) { log('bridge first run: ' + e.message); }
+}
+ipcMain.handle('bridge:status', () => { try { return { installed: fs.existsSync(path.join(process.env.ProgramData || 'C:\\ProgramData', 'ConsoleBridge', 'installed.txt')) }; } catch { return { installed: false }; } });
 ipcMain.handle('cap:open', () => { try { shell.openPath(capDir()); } catch {} return true; });
 // ---- v813: System info (drives, memory, network) ----
 ipcMain.handle('sys:info', async () => {
@@ -4377,7 +4507,39 @@ ipcMain.on('wp:changed', (_e, id) => {
   wpChkT = setTimeout(() => look(1), 2200);
 });
 ipcMain.on('lag:log', (_e, t) => { if (/^wallpaper:/.test(String(t))) { log(String(t).slice(0, 300)); return; } const n = Date.now(); if (n - rLagAt < 800) return; rLagAt = n; log('lag: ' + String(t).slice(0, 300)); });   // slow screen frames reported by the page
+// ---- v1069: the Game Bar "get an app / select an app" box is stopped for good, automatically: the three Game Bar links go to a file that does nothing (this Windows user only) ----
+function quietGameBar() {
+  if (process.platform !== 'win32') return;
+  try {
+    const vbs = path.join(__dirname, 'quiet-gamebar.vbs'); if (!fs.existsSync(vbs)) return;
+    const reg = (a) => new Promise((res) => { try { execFile('reg.exe', a, { windowsHide: true, timeout: 8000 }, () => res()); } catch { res(); } });
+    (async () => {
+      for (const p of ['ms-gamebar', 'ms-gamingoverlay', 'ms-gamebarservices']) {
+        await reg(['delete', 'HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\' + p, '/f']);   // the old saved choice that makes Windows ask again
+        await reg(['add', 'HKCU\\Software\\Classes\\' + p, '/ve', '/d', 'URL:' + p, '/f']);
+        await reg(['add', 'HKCU\\Software\\Classes\\' + p, '/v', 'URL Protocol', '/d', '', '/f']);
+        await reg(['add', 'HKCU\\Software\\Classes\\' + p + '\\shell\\open\\command', '/ve', '/d', 'wscript.exe //B //Nologo "' + vbs + '" "%1"', '/f']);
+      }
+      log('game bar links: quiet handler set');
+    })();
+  } catch (e) { log('game bar links: ' + e.message); }
+}
+
+// the controller bridge always runs as administrator (its startup task has the highest rights); if it is not running, start that task (no prompt needed)
+function bridgeWatch() {
+  try {
+    if (process.platform !== 'win32' || !fs.existsSync(path.join(process.env.ProgramData || 'C:\\ProgramData', 'ConsoleBridge', 'installed.txt'))) return;
+    execFile('tasklist', ['/FI', 'IMAGENAME eq ScufDualSense.exe', '/NH'], { windowsHide: true }, (err, out) => {
+      if (err || /ScufDualSense\.exe/i.test(String(out))) return;
+      log('controller bridge not running, starting it');
+      spawn('schtasks', ['/run', '/tn', 'ConsoleControllerBridge'], { windowsHide: true, stdio: 'ignore' }).on('error', () => {});
+    });
+  } catch {}
+}
 app.whenReady().then(() => {
+  setTimeout(bridgeWatch, 6000); setInterval(bridgeWatch, 30000); setTimeout(bridgeFirstRun, 30000);
+  try { detectPadKind(); } catch {}   // v1091: found before the startup video is chosen
+  try { quietGameBar(); } catch {}
   // v823: rescue. If the console fails to stay up three starts in a row, it steps aside and opens the normal Windows desktop so you are never locked out
   try {
     const bsf = path.join(app.getPath('userData'), 'boot-state.json'); let prev = null; try { prev = JSON.parse(fs.readFileSync(bsf, 'utf8')); } catch {}
@@ -4407,6 +4569,7 @@ app.whenReady().then(() => {
   });
   log('start');
   // the Widevine build of Electron (see install-widevine.bat) downloads Google's copy-protection module once; Spotify needs it to play sound inside the console
+  seedIntroVideos();   // the Xbox and PS5 startup videos that come with the console (once per version; your own picks later still work)
   const go = () => { createWindow(); startHelper(); lsStart(); };
   try {
     const { components } = require('electron');
@@ -4751,7 +4914,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1068';
+const VERSION = 'v1262';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 

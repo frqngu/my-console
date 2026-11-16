@@ -32,6 +32,24 @@ public static class Mouse {
   [StructLayout(LayoutKind.Sequential)] public struct GP { public ushort Buttons; public byte LT; public byte RT; public short LX; public short LY; public short RX; public short RY; }
   [StructLayout(LayoutKind.Sequential)] public struct ST { public uint Packet; public GP Pad; }
   [StructLayout(LayoutKind.Sequential)] public struct PT { public int X; public int Y; }
+  [StructLayout(LayoutKind.Sequential)] public struct JEX { public uint Size, Flags, X, Y, Z, R, U, V, Buttons, ButtonNo, POV, R1, R2; }
+  [DllImport("winmm.dll")] static extern uint joyGetPosEx(uint id, ref JEX j);
+  static uint[,] joyPrev = new uint[4, 8]; static bool[] joyHad = new bool[4];
+  static bool JoyPress() {   // a PlayStation controller (or any other that is not XInput) is touched: any button, stick or d-pad movement
+    bool hit = false;
+    for (uint id = 0; id < 4; id++) {
+      JEX j = new JEX(); j.Size = (uint)Marshal.SizeOf(typeof(JEX)); j.Flags = 0xFF;
+      try { if (joyGetPosEx(id, ref j) != 0) { joyHad[id] = false; continue; } } catch (Exception) { return false; }
+      uint[] cur = new uint[] { j.X, j.Y, j.Z, j.R, j.U, j.V, j.Buttons, j.POV };
+      if (joyHad[id]) {
+        if (cur[6] != joyPrev[id, 6] && cur[6] != 0) hit = true;
+        if (cur[7] != joyPrev[id, 7] && cur[7] != 65535) hit = true;
+        for (int k = 0; k < 6; k++) { long d = (long)cur[k] - (long)joyPrev[id, k]; if (d < 0) d = -d; if (d > 7000) hit = true; }
+      }
+      for (int k = 0; k < 8; k++) joyPrev[id, k] = cur[k]; joyHad[id] = true;
+    }
+    return hit;
+  }
   [DllImport("xinput1_4.dll")] static extern int XInputGetState(int i, out ST s);
   [DllImport("xinput1_4.dll", EntryPoint = "#100")] static extern int XInputGetStateEx(int i, out ST s);   // also reports the Xbox (Guide) button
   [StructLayout(LayoutKind.Sequential)] public struct BAT { public byte Type; public byte Level; }
@@ -392,6 +410,39 @@ public static class Mouse {
     pinT = new Thread(delegate() { bool yielded = false; while (pinV != 0) { if (pinIdle && ForeignHere(new IntPtr(pinV))) { if (!yielded) { yielded = true; SetWindowPos(new IntPtr(pinV), new IntPtr(-2), 0, 0, 0, 0, 0x13); } } else { yielded = false; SetWindowPos(new IntPtr(pinV), new IntPtr(-1), 0, 0, 0, 0, 0x13); } Thread.Sleep(40); } pinV = 0; }); pinT.IsBackground = true; pinT.Start();
   }
   static void Back(IntPtr h) { SetWindowPos(h, new IntPtr(1), 0, 0, 0, 0, 0x13); }   // bottom of the stack, without activating
+  // v1094: a PlayStation controller (a real one, or the virtual one the SCUF bridge makes) is not an XInput pad, so it is read through the old Windows joystick API and turned into the same state
+  [StructLayout(LayoutKind.Sequential)] struct JIX { public uint Size, Flags, X, Y, Z, R, U, V, Buttons, ButtonNumber, POV, R1, R2; }
+  [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)] struct JCP { public ushort Mid, Pid; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string Name; public uint Xmin, Xmax, Ymin, Ymax, Zmin, Zmax, NumButtons, PerMin, PerMax, Rmin, Rmax, Umin, Umax, Vmin, Vmax, Caps, MaxAxes, NumAxes, MaxButtons; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string Reg; [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string Oem; }
+  [DllImport("winmm.dll")] static extern uint joyGetPosEx(uint id, ref JIX j);
+  [DllImport("winmm.dll", CharSet = CharSet.Unicode)] static extern uint joyGetDevCapsW(UIntPtr id, out JCP c, uint size);
+  static int jIdx = -1; static long jScan = 0; static uint jPacket = 0;
+  static bool ReadDs(out ST s) {
+    s = new ST();
+    try {
+      long now = Environment.TickCount;
+      if (jIdx < 0) {
+        if (now - jScan < 2000) return false;
+        jScan = now;
+        for (uint i = 0; i < 16; i++) { JCP c; if (joyGetDevCapsW((UIntPtr)i, out c, (uint)Marshal.SizeOf(typeof(JCP))) == 0 && c.Mid == 0x054C) { jIdx = (int)i; break; } }
+        if (jIdx < 0) return false;
+      }
+      JIX j = new JIX(); j.Size = (uint)Marshal.SizeOf(typeof(JIX)); j.Flags = 0xFF;
+      if (joyGetPosEx((uint)jIdx, ref j) != 0) { jIdx = -1; return false; }
+      ushort b = 0; uint B = j.Buttons;
+      if ((B & 2) != 0) b |= 0x1000; if ((B & 4) != 0) b |= 0x2000; if ((B & 1) != 0) b |= 0x4000; if ((B & 8) != 0) b |= 0x8000;   // cross, circle, square, triangle
+      if ((B & 16) != 0) b |= 0x100; if ((B & 32) != 0) b |= 0x200;   // L1, R1
+      if ((B & 256) != 0) b |= 0x20; if ((B & 512) != 0) b |= 0x10;   // share = back, options = start
+      if ((B & 1024) != 0) b |= 0x40; if ((B & 2048) != 0) b |= 0x80;   // L3, R3
+      if ((B & 4096) != 0) b |= 0x400;   // the PS button
+      uint pov = j.POV & 0xFFFF;
+      if (pov != 0xFFFF) { if (pov >= 31500 || pov <= 4500) b |= 1; if (pov >= 4500 && pov <= 13500) b |= 8; if (pov >= 13500 && pov <= 22500) b |= 2; if (pov >= 22500 && pov <= 31500) b |= 4; }
+      s.Pad.Buttons = b;
+      s.Pad.LT = (byte)((B & 64) != 0 ? 255 : 0); s.Pad.RT = (byte)((B & 128) != 0 ? 255 : 0);
+      s.Pad.LX = (short)((int)j.X - 32768); s.Pad.LY = (short)Math.Max(-32768, Math.Min(32767, 32767 - (int)j.Y));
+      s.Pad.RX = (short)((int)j.Z - 32768); s.Pad.RY = (short)Math.Max(-32768, Math.Min(32767, 32767 - (int)j.R));
+      s.Packet = ++jPacket; return true;
+    } catch (Exception) { s = new ST(); return false; }
+  }
   static bool Read(out ST s) {
     for (int i = 0; i < 4; i++) {
       int r;
@@ -399,7 +450,7 @@ public static class Mouse {
       else r = XInputGetState(i, out s);
       if (r == 0) { padIdx = i; return true; }
     }
-    s = new ST(); return false;
+    return ReadDs(out s);
   }
   static void Stick(double x, double y, double pw, out double ox, out double oy) {
     double mag = Math.Sqrt(x * x + y * y);
@@ -486,7 +537,8 @@ public static class Mouse {
       if (!okPad && lastBat != "batt 0 0") { lastBat = "batt 0 0"; Out(lastBat); }
       if (shield && !on) shield = false;
       if (shield && shieldH != IntPtr.Zero && !lD && !rD && now >= shNext) { IntPtr fgw = GetForegroundWindow(); if (fgw != shieldH) { if (fgw != IntPtr.Zero) tgtH = fgw; shNext = now + 60; Front(shieldH); if (GetForegroundWindow() != shieldH) { Thread.Sleep(25); Front(shieldH); } bool okF = GetForegroundWindow() == shieldH; if (okF != shLast) { shLast = okF; Out("shield " + (okF ? "holds focus (target " + tgtH + ")" : "could not take focus (target " + tgtH + ")")); } } }
-      if (!okPad) { if (lD) { Click(0x4); lD = false; } if (rD) { Click(0x10); rD = false; } Thread.Sleep(250); continue; }
+      if (!okPad) { if (lD) { Click(0x4); lD = false; } if (rD) { Click(0x10); rD = false; } if (JoyPress() && now - padAt > 250 && !MouseBusy(150)) { padAt = now; Out(FgOther() ? "pad press other" : "pad press"); }   // not an XInput pad (a PlayStation controller): a touch still hands the focus back to the console
+        Thread.Sleep(40); continue; }
       ushort b = s.Pad.Buttons; ushort pressed = (ushort)(b & ~prevB); ushort released = (ushort)(prevB & ~b); prevB = b;
       bool stickRaw = Math.Abs((int)s.Pad.LX) > (stickOn ? 9000 : 22000) || Math.Abs((int)s.Pad.LY) > (stickOn ? 9000 : 22000) || Math.Abs((int)s.Pad.RX) > (stickOn ? 9000 : 22000) || Math.Abs((int)s.Pad.RY) > (stickOn ? 9000 : 22000); bool stickMoved = stickRaw && !stickOn; stickOn = stickRaw;   // a stick counts only when it is pushed (not while it simply rests in a pushed position)
       nowMs = now;

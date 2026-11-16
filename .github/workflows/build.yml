@@ -26,6 +26,23 @@ jobs:
           Invoke-WebRequest -Uri 'https://github.com/castlabs/electron-releases/releases/download/v34.5.8%2Bwvcus/electron-v34.5.8%2Bwvcus-win32-x64.zip' -OutFile electron.zip
           Expand-Archive electron.zip -DestinationPath electron-dist -Force
           Get-ChildItem electron-dist | Select-Object -First 8
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the PS5 controller bridge and fetch its two drivers (they ship inside the installer)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone --depth 1 https://github.com/pedjaaaaa/Scuf-Omega-PS5-for-PC.git bridge-src
+          dotnet publish bridge-src/ScufDualSense.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o bridge-out
+          Copy-Item bridge-src/app.ico bridge-out/ -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path bridge-out/drivers | Out-Null
+          gh release download --repo nefarius/ViGEmBus --pattern "*x64*" --dir bridge-out/drivers --clobber
+          gh release download --repo nefarius/HidHide --pattern "*x64*.exe" --dir bridge-out/drivers --clobber
+          Get-ChildItem bridge-out -Recurse | Select-Object FullName, Length
+          if (-not (Test-Path bridge-out/ScufDualSense.exe)) { throw 'bridge did not build' }
+          exit 0
       - run: pip install castlabs-evs
       - run: npm install
       - run: npm run dist

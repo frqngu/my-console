@@ -3866,3 +3866,332 @@ html body #menu .item .mv.on, html body #menu .item:focus .mv.on { color:#8cf0b8
 /* v1067: the clock page shows no game outline, and the dashboard comes back clean */
 body.ambient #glow, body.ambient-out #glow { opacity:0 !important; transition:none !important; }
 body.ambient :focus, body.ambient-out :focus { outline:none !important; box-shadow:none !important; }
+
+/* v1071: the game name is there the instant a game is selected: no delayed fade-in on the home screen */
+html body.is-home:not(.lib):not(.onshelf):not(.intro-rise):not(.intro-on):not(.ambient):not(.ambient-out) #hero .hg.on { animation:none !important; opacity:1 !important; transition:none !important; visibility:visible !important; }
+html body #hero .hg:not(.on) { transition:none !important; }
+html body.ambient #hero .hg, html body.ambient #hero .hg.on, html body.ambient #hero .pc, html body.ambient #hero .hgx { opacity:0 !important; visibility:hidden !important; }   /* v1075: the clock page is only the wallpaper and the clock */
+
+/* v1089: the fading old screen is taken out of the layout, even when it is the dashboard (its "main:has(.dash)" rule used to make it relative, so for a quarter second it took half the height and the new page started high, then dropped to the middle) */
+main.ghost, .ghost { position:fixed !important; flex:none !important; }
+
+/* ---------- v1091: PlayStation controller in use: PlayStation button symbols and the Control Center (the PS button, held) ---------- */
+.gl.ps { color:#e8ecff !important; border-color:#6b7699 !important; }
+.gl.ps .gsv { width:1.15rem; height:1.15rem; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+.gl.ps .ps-x { color:#7fb0ff; } .gl.ps .ps-o { color:#ff6b7d; } .gl.ps .ps-s { color:#ff9ad5; } .gl.ps .ps-t { color:#5fe0b0; }
+.gl.ps.pt { border-radius:.6rem; min-width:2.6rem; font-size:.78rem; letter-spacing:.02em; }@keyframes pcLab { from { opacity:0; transform:translateX(-50%) translateY(calc(var(--w) * .4)); } to { opacity:1; transform:translateX(-50%); } }
+@keyframes pcRise { from { opacity:0; transform:translateY(calc(var(--w) * 1.6)); } to { opacity:1; transform:none; } }/* ===== v1200: PlayStation Control Center, one clean stylesheet ===== */
+
+
+/* sheet + dim */
+html body.gd-ps #guide .gd-dim, html body.gd-ps #guide-out .gd-dim { background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(0,0,0,.26) 100%) !important; backdrop-filter:none !important; }
+html body.gd-ps .gd-p { --sheet:#6aa8ff; position:absolute !important; inset:0 !important; width:auto !important; height:auto !important; max-height:none !important; padding:0 !important; background:none !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; backdrop-filter:none !important; display:block !important; overflow:visible !important; transform:none !important; opacity:0 !important; transition:opacity .3s var(--smooth) !important; }
+html body.gd-ps #guide.on .gd-p { opacity:1 !important; }
+html body.gd-ps .gd-p::before, html body.gd-ps .gd-sky, html body.gd-ps .pc-hd, html body.gd-ps #glow { display:none !important; }
+html body.gd-ps footer { left:calc(var(--w) * 5) !important; }
+html body.gd-ps .gd-clock { position:absolute !important; top:calc(var(--w) * 2.3) !important; right:calc(var(--w) * 3.2) !important; text-align:right !important; color:#fff !important; text-shadow:0 1px calc(var(--w) * .9) rgba(0,0,0,.55) !important; }
+html body.gd-ps .gd-clock b { display:block !important; font-size:calc(var(--w) * 2.1) !important; font-weight:400 !important; line-height:1 !important; font-variant-numeric:tabular-nums !important; }
+html body.gd-ps .gd-clock small { display:none !important; }
+html body.gd-ps .gd-cust { position:absolute !important; right:calc(var(--w) * 2.8) !important; bottom:calc(var(--w) * 2.5) !important; display:flex !important; align-items:center !important; gap:calc(var(--w) * .6) !important; padding:0 !important; border:0 !important; background:none !important; box-shadow:none !important; color:#fff !important; font-size:calc(var(--w) * 1.05) !important; font-weight:600 !important; }
+html body.gd-ps .gd-cust svg { width:calc(var(--w) * 1.4) !important; height:calc(var(--w) * 1.4) !important; fill:none !important; stroke:#fff !important; stroke-width:2 !important; stroke-linecap:round !important; }
+
+/* icon bar */
+html body.gd-ps #guide .gd-tabs { position:absolute !important; left:50% !important; right:auto !important; top:auto !important; bottom:calc(var(--w) * 1.5) !important; transform:translateX(-50%) !important; display:flex !important; align-items:center !important; gap:calc(var(--w) * 2.2) !important; width:auto !important; height:auto !important; margin:0 !important; padding:0 !important; background:none !important; border:0 !important; border-radius:0 !important; box-shadow:none !important; }
+html body.gd-ps #guide .gd-tb { flex:none !important; position:relative !important; display:flex !important; align-items:center !important; justify-content:center !important; width:calc(var(--w) * 4.2) !important; min-width:0 !important; height:calc(var(--w) * 4.2) !important; margin:0 !important; padding:0 !important; border:0 !important; border-radius:50% !important; background:transparent !important; box-shadow:none !important; color:#fff !important; opacity:.72 !important; transform:none !important; transition:opacity .25s var(--smooth), background .25s var(--smooth), box-shadow .25s var(--smooth), transform .3s var(--spring) !important; }
+html body.gd-ps #guide .gd-tb .pcf, html body.gd-ps #guide .gd-tb .ico { width:calc(var(--w) * 1.9) !important; height:calc(var(--w) * 1.9) !important; color:#fff !important; flex:none !important; }
+html body.gd-ps #guide .gd-tb .av, html body.gd-ps #guide .gd-tb .avs { width:calc(var(--w) * 2.6) !important; height:calc(var(--w) * 2.6) !important; flex:none !important; }
+html body.gd-ps #guide .gd-tb .gd-tcov { display:block !important; width:calc(var(--w) * 2.8) !important; height:calc(var(--w) * 2.8) !important; border-radius:calc(var(--w) * .5) !important; background-size:cover !important; background-position:center !important; box-shadow:0 0 0 1px rgba(255,255,255,.3) !important; }
+html body.gd-ps #guide .gd-tb.cur { opacity:1 !important; background:rgba(22,25,36,.78) !important; box-shadow:0 0 0 calc(var(--w) * .18) #fff, 0 0 calc(var(--w) * 1.8) rgba(255,255,255,.22) !important; }
+html body.gd-ps #guide .gd-tb:focus { outline:none !important; }
+html body.gd-ps.gd-row #guide .gd-tb:not(.cur) { opacity:.4 !important; }
+html body.gd-ps.gd-row #guide .gd-tb.cur { box-shadow:none !important; background:rgba(255,255,255,.1) !important; }
+html body.gd-ps:not(.gd-row):not(.gd-menu) #guide .gd-tb.cur::after { content:attr(data-l) !important; position:absolute !important; left:50% !important; bottom:calc(100% + var(--w) * 1) !important; transform:translateX(-50%) !important; white-space:nowrap !important; font-size:calc(var(--w) * 1.05) !important; font-weight:500 !important; color:#fff !important; text-shadow:0 1px calc(var(--w) * .6) rgba(0,0,0,.7) !important; animation:pcLab .35s var(--spring) backwards !important; }
+html body.gd-ps #guide .gd-tb .gd-bd { position:absolute !important; right:calc(var(--w) * .1) !important; bottom:calc(var(--w) * .2) !important; font-style:normal !important; font-size:calc(var(--w) * .8) !important; font-weight:600 !important; color:#fff !important; line-height:1 !important; }
+html body.gd-ps #guide .gd-tb .gd-bd.on:not(.dot) { padding-left:calc(var(--w) * .75) !important; }
+html body.gd-ps #guide .gd-tb .gd-bd.on:not(.dot)::before { content:'' !important; position:absolute !important; left:0 !important; top:50% !important; width:calc(var(--w) * .5) !important; height:calc(var(--w) * .5) !important; margin-top:calc(var(--w) * -.25) !important; border-radius:50% !important; background:#3be07a !important; }
+html body.gd-ps #guide .gd-tb .gd-bd.dot { right:calc(var(--w) * .8) !important; top:calc(var(--w) * .6) !important; bottom:auto !important; width:calc(var(--w) * .65) !important; height:calc(var(--w) * .65) !important; border-radius:50% !important; background:#4f9bff !important; padding:0 !important; }
+html body.gd-ps #guide .gd-tb .gd-bd.dot.on { top:auto !important; bottom:calc(var(--w) * .5) !important; right:calc(var(--w) * .5) !important; background:#3be07a !important; }
+html body.gd-ps #guide .gd-tb .gd-bd.bat { right:calc(var(--w) * -.6) !important; bottom:calc(var(--w) * -.5) !important; font-size:calc(var(--w) * .72) !important; opacity:.85 !important; }
+html body.gd-ps #guide .pcf { fill:currentColor !important; stroke:none !important; stroke-width:0 !important; }
+/* customize */
+html body.gd-ps #guide .gd-tb .gd-ck { position:absolute !important; left:50% !important; bottom:calc(var(--w) * -1.4) !important; width:calc(var(--w) * 1.1) !important; height:calc(var(--w) * 1.1) !important; margin-left:calc(var(--w) * -.55) !important; border:1.5px solid rgba(255,255,255,.8) !important; border-radius:calc(var(--w) * .25) !important; box-sizing:border-box !important; }
+html body.gd-ps #guide .gd-tb .gd-ck.on { background:#fff !important; }
+html body.gd-ps #guide .gd-tb .gd-ck.on::after { content:'' !important; position:absolute !important; left:calc(var(--w) * .3) !important; top:calc(var(--w) * .08) !important; width:calc(var(--w) * .3) !important; height:calc(var(--w) * .6) !important; border:solid #0a0c14 !important; border-width:0 2px 2px 0 !important; transform:rotate(45deg) !important; }
+html body.gd-ps #guide .gd-tb .gd-ck.fx { opacity:.45 !important; }
+html body.gd-ps #guide .gd-tb.hid { opacity:.3 !important; }
+html body.gd-ps #guide .gd-tb.grab { transform:translateY(calc(var(--w) * -1.1)) scale(1.15) !important; }
+html body.gd-ps #guide .gd-body .pc-cust { display:block !important; position:static !important; align-self:flex-end !important; width:calc(var(--w) * 50) !important; margin-bottom:calc(var(--w) * 1.5) !important; color:#fff !important; }
+html body.gd-ps #guide .gd-body .pc-cust b { display:block !important; font-size:calc(var(--w) * 2) !important; font-weight:600 !important; margin-bottom:calc(var(--w) * .5) !important; }
+html body.gd-ps #guide .gd-body .pc-cust small { font-size:calc(var(--w) * 1.15) !important; color:rgba(255,255,255,.7) !important; line-height:1.4 !important; }
+
+/* hint line */
+html body.gd-ps .pc-hint { position:absolute !important; left:var(--hx, 50%) !important; bottom:calc(var(--w) * 6.3) !important; transform:translateX(-50%) !important; width:max-content !important; display:none !important; align-items:center !important; gap:calc(var(--w) * .6) !important; font-size:calc(var(--w) * 1.1) !important; font-weight:500 !important; color:#fff !important; text-shadow:0 1px calc(var(--w) * .6) rgba(0,0,0,.7) !important; pointer-events:none !important; }
+html body.gd-ps .pc-hint.on { display:flex !important; }
+html body.gd-ps .pc-hint svg { width:calc(var(--w) * 1.5) !important; height:calc(var(--w) * 1.5) !important; fill:none !important; stroke:#fff !important; stroke-width:1.8 !important; stroke-linecap:round !important; }
+html body.gd-ps .pc-hint b { font-weight:700 !important; margin-right:calc(var(--w) * .2) !important; }
+
+/* ---------- the card row (Switcher) ---------- */
+html body.gd-ps #guide .gd-body { position:absolute !important; left:0 !important; right:0 !important; top:auto !important; bottom:calc(var(--w) * 8.4) !important; width:auto !important; max-height:none !important; margin:0 !important; padding:calc(var(--w) * 1.5) calc(var(--w) * 4.2) !important; background:none !important; border:0 !important; box-shadow:none !important; transform:none !important; display:flex !important; flex-direction:row !important; align-items:flex-end !important; gap:calc(var(--w) * 1.2) !important; overflow-x:auto !important; overflow-y:hidden !important; scrollbar-width:none !important; -webkit-mask-image:none !important; mask-image:none !important; }
+html body.gd-ps #guide .gd-body::-webkit-scrollbar { display:none !important; }
+html body.gd-ps #guide .gd-body .gd-h, html body.gd-ps #guide .gd-body .gd-sep, html body.gd-ps #guide .gd-body .gd-pl, html body.gd-ps #guide .gd-body .pc-sec, html body.gd-ps #guide .gd-body .pc-gbt, html body.gd-ps #guide .gd-body .pc-prof, html body.gd-ps #guide .gd-body .pc-sw, html body.gd-ps #guide .gd-body .pc-ct { display:none !important; }
+html body.gd-ps #guide.on .gd-body > * { animation:pcRise .45s var(--spring) backwards !important; }
+html body.gd-ps:not(.gd-menu) #guide .gd-body .gd-i, html body.gd-ps:not(.gd-menu) #guide .gd-body .gd-fr, html body.gd-ps:not(.gd-menu) #guide .gd-body .gd-rc, html body.gd-ps:not(.gd-menu) #guide .gd-body .gd-np, html body.gd-ps:not(.gd-menu) #guide .gd-body .gd-u, html body.gd-ps:not(.gd-menu) #guide .gd-body .gd-ach, html body.gd-ps:not(.gd-menu) #guide .gd-body .gd-frs, html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-empty { flex:none !important; position:relative !important; box-sizing:border-box !important; display:flex !important; flex-direction:column !important; justify-content:flex-end !important; align-items:stretch !important; gap:0 !important; width:calc(var(--w) * 15) !important; height:calc(var(--w) * 19) !important; margin:0 !important; padding:calc(var(--w) * 1.3) !important; border:0 !important; border-radius:calc(var(--w) * 1.1) !important; overflow:hidden !important; text-align:left !important; color:#fff !important; background:linear-gradient(180deg, #1a1d2b, #10121c) !important; box-shadow:0 calc(var(--w) * .8) calc(var(--w) * 2) rgba(0,0,0,.4) !important; transform:none !important; filter:none !important; opacity:1 !important; }
+html body.gd-ps:not(.gd-menu) #guide .gd-body .gd-np, html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-empty { width:calc(var(--w) * 22) !important; }
+html body.gd-ps.gd-row:not(.gd-menu) #guide .gd-body .gd-i:focus, html body.gd-ps.gd-row:not(.gd-menu) #guide .gd-body .gd-fr:focus, html body.gd-ps.gd-row:not(.gd-menu) #guide .gd-body .gd-rc:focus { width:calc(var(--w) * 18) !important; height:calc(var(--w) * 22) !important; outline:none !important; box-shadow:0 0 0 calc(var(--w) * .16) #fff, 0 calc(var(--w) * 1.4) calc(var(--w) * 3) rgba(0,0,0,.55) !important; background:linear-gradient(180deg, #232738, #14172a) !important; transform:none !important; }
+html body.gd-ps.gd-row:not(.gd-menu) #guide .gd-body .gd-i.pc-prog:focus, html body.gd-ps.gd-row:not(.gd-menu) #guide .gd-body .gd-i.pc-game:focus { background:#11131e !important; }
+html body.gd-ps:not(.gd-row) #guide .gd-body [data-nav]:focus { outline:none !important; }
+html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-ic { position:absolute !important; left:calc(var(--w) * 1.2) !important; top:calc(var(--w) * 1.2) !important; display:grid !important; place-items:center !important; width:calc(var(--w) * 2.7) !important; height:calc(var(--w) * 2.7) !important; border-radius:calc(var(--w) * .55) !important; background:rgba(255,255,255,.95) !important; }
+html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-ic .pcf, html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-ic .ico { width:calc(var(--w) * 1.6) !important; height:calc(var(--w) * 1.6) !important; color:#0b0d16 !important; }
+html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-wm { position:absolute !important; left:50% !important; top:calc(var(--w) * 7.6) !important; transform:translate(-50%, -50%) !important; display:block !important; width:calc(var(--w) * 7.4) !important; height:calc(var(--w) * 7.4) !important; pointer-events:none !important; opacity:1 !important; }
+html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-wm .pcf, html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-wm .ico { width:100% !important; height:100% !important; color:rgba(255,255,255,.9) !important; }
+html body.gd-ps #guide .gd-body .pc-tx { position:relative !important; z-index:1 !important; display:flex !important; flex-direction:column-reverse !important; gap:calc(var(--w) * .35) !important; min-width:0 !important; max-width:100% !important; }
+html body.gd-ps #guide .gd-body .pc-tx b { display:block !important; font-size:calc(var(--w) * 1.4) !important; font-weight:700 !important; line-height:1.15 !important; color:#fff !important; }
+html body.gd-ps #guide .gd-body .pc-tx small { display:block !important; font-size:calc(var(--w) * .95) !important; line-height:1.25 !important; color:rgba(255,255,255,.62) !important; }
+html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-empty { border:1px dashed rgba(255,255,255,.22) !important; background:rgba(255,255,255,.04) !important; box-shadow:none !important; }
+/* voice card */
+html body.gd-ps #guide .gd-body .pc-faces { position:absolute !important; left:0 !important; right:0 !important; top:calc(var(--w) * 5.4) !important; display:flex !important; justify-content:center !important; gap:calc(var(--w) * .5) !important; }
+html body.gd-ps #guide .gd-body .pc-faces .gd-fa { width:calc(var(--w) * 4.4) !important; height:calc(var(--w) * 4.4) !important; font-size:calc(var(--w) * 1.8) !important; }
+/* game + progress cards: art on top, solid panel below */
+html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-prog, html body.gd-ps:not(.gd-menu) #guide .gd-body .pc-game { padding:0 !important; background:#11131e !important; }
+html body.gd-ps #guide .gd-body .pc-prog .th, html body.gd-ps #guide .gd-body .pc-game .th { position:absolute !important; left:0 !important; right:0 !important; top:0 !important; width:100% !important; height:66% !important; margin:0 !important; border-radius:0 !important; background-size:cover !important; background-position:center !important; box-shadow:none !important; }
+html body.gd-ps #guide .gd-body .pc-prog::after, html body.gd-ps #guide .gd-body .pc-game::after { content:'' !important; position:absolute !important; inset:0 !important; pointer-events:none !important; background:linear-gradient(180deg, rgba(8,8,20,.22) 0%, rgba(8,8,20,0) 30%, #11131e 66%, #11131e 100%) !important; }
+html body.gd-ps #guide .gd-body .pc-prog .pc-tx, html body.gd-ps #guide .gd-body .pc-game .pc-tx { width:100% !important; box-sizing:border-box !important; padding:calc(var(--w) * 1.2) calc(var(--w) * 1.3) calc(var(--w) * 1.3) !important; }
+html body.gd-ps #guide .gd-body .pc-prog .pc-tx, html body.gd-ps #guide .gd-body .pc-game .pc-tx { flex-direction:column !important; }
+html body.gd-ps #guide .gd-body .pc-prog .pc-tx small, html body.gd-ps #guide .gd-body .pc-game .pc-tx small { order:-1 !important; }
+html body.gd-ps #guide .gd-body .pc-prog .pc-tx { flex-direction:column-reverse !important; }
+html body.gd-ps #guide .gd-body .pc-prog .pc-pct { position:absolute !important; z-index:1 !important; top:calc(var(--w) * 1.4) !important; left:calc(var(--w) * 1.3) !important; font-style:normal !important; font-size:calc(var(--w) * 3.2) !important; font-weight:700 !important; line-height:1 !important; color:#fff !important; text-shadow:0 1px calc(var(--w) * .9) rgba(0,0,0,.8) !important; }
+html body.gd-ps #guide .gd-body .pc-prog .pc-pct i { font-style:normal !important; font-size:calc(var(--w) * 1.6) !important; }
+html body.gd-ps #guide .gd-body .pc-prog .pc-chip { position:absolute !important; z-index:1 !important; top:calc(var(--w) * 5.2) !important; left:calc(var(--w) * 1.3) !important; padding:calc(var(--w) * .15) calc(var(--w) * .6) !important; border:1px solid rgba(255,255,255,.85) !important; font-size:calc(var(--w) * .8) !important; color:#fff !important; background:rgba(0,0,0,.55) !important; }
+
+/* ---------- popup lists (every other tab) ---------- */
+html body.gd-ps.gd-menu #guide .gd-body { left:max(calc(var(--w) * 1), min(calc(var(--mx, 50vw) - var(--w) * 13.5), calc(100vw - var(--w) * 28))) !important; right:auto !important; width:calc(var(--w) * 27) !important; max-height:calc(100vh - var(--w) * 14) !important; box-sizing:border-box !important; padding:calc(var(--w) * .7) !important; flex-direction:column !important; align-items:stretch !important; gap:0 !important; overflow-x:hidden !important; overflow-y:auto !important; border-radius:calc(var(--w) * 1.2) !important; background:rgba(26,28,40,.96) !important; box-shadow:0 calc(var(--w) * 1.2) calc(var(--w) * 4) rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06) !important; }
+html body.gd-ps.gd-menu #guide .gd-body::before { content:attr(data-t) !important; flex:none !important; padding:calc(var(--w) * .5) calc(var(--w) * .9) calc(var(--w) * .8) !important; font-size:calc(var(--w) * 1.05) !important; color:rgba(255,255,255,.6) !important; }
+html body.gd-ps.gd-menu #guide.on .gd-body > * { animation:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-sec { display:block !important; flex:none !important; padding:calc(var(--w) * .9) calc(var(--w) * .9) calc(var(--w) * .4) !important; font-size:calc(var(--w) * 1) !important; color:rgba(255,255,255,.55) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-vc, html body.gd-ps.gd-menu #guide .gd-body .pc-md, html body.gd-ps.gd-menu #guide .gd-body .pc-prog, html body.gd-ps.gd-menu #guide .gd-body .pc-wm { display:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-i, html body.gd-ps.gd-menu #guide .gd-body .gd-fr, html body.gd-ps.gd-menu #guide .gd-body .gd-rc, html body.gd-ps.gd-menu #guide .gd-body .pc-empty { flex:none !important; position:relative !important; box-sizing:border-box !important; display:flex !important; flex-direction:row !important; align-items:center !important; gap:calc(var(--w) * 1.1) !important; width:100% !important; height:auto !important; min-height:calc(var(--w) * 4.6) !important; margin:0 !important; padding:calc(var(--w) * .5) calc(var(--w) * .9) !important; border:0 !important; border-radius:calc(var(--w) * .7) !important; background:transparent !important; box-shadow:inset 0 -1px 0 rgba(255,255,255,.07) !important; text-align:left !important; color:#fff !important; overflow:visible !important; transform:none !important; filter:none !important; opacity:1 !important; }
+html body.gd-ps.gd-menu #guide .gd-body > :last-child { box-shadow:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-empty { color:rgba(255,255,255,.7) !important; }
+html body.gd-ps.gd-menu.gd-row #guide .gd-body .gd-i:focus, html body.gd-ps.gd-menu.gd-row #guide .gd-body .gd-fr:focus, html body.gd-ps.gd-menu.gd-row #guide .gd-body .gd-rc:focus { outline:none !important; background:rgba(255,255,255,.1) !important; box-shadow:inset 0 0 0 calc(var(--w) * .15) rgba(255,255,255,.9) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-ic { position:static !important; display:grid !important; place-items:center !important; flex:none !important; width:calc(var(--w) * 2.2) !important; height:calc(var(--w) * 2.2) !important; border-radius:0 !important; background:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-ic .pcf, html body.gd-ps.gd-menu #guide .gd-body .pc-ic .ico { width:calc(var(--w) * 1.8) !important; height:calc(var(--w) * 1.8) !important; color:#fff !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-tx { flex:1 !important; flex-direction:row !important; align-items:center !important; justify-content:space-between !important; gap:calc(var(--w) * 1) !important; width:auto !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-tx b { font-size:calc(var(--w) * 1.3) !important; font-weight:500 !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-tx small { font-size:calc(var(--w) * 1) !important; text-align:right !important; color:rgba(255,255,255,.55) !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; max-width:52% !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-sw { display:block !important; flex:none !important; position:relative !important; width:calc(var(--w) * 3.6) !important; height:calc(var(--w) * 2) !important; border-radius:99px !important; background:rgba(255,255,255,.22) !important; transition:background .2s !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-sw i { position:absolute !important; top:calc(var(--w) * .2) !important; left:calc(var(--w) * .2) !important; width:calc(var(--w) * 1.6) !important; height:calc(var(--w) * 1.6) !important; border-radius:50% !important; background:#fff !important; transition:transform .22s var(--spring) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-sw.on { background:#3d8bff !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-sw.on i { transform:translateX(calc(var(--w) * 1.6)) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-row .pc-tx { flex:1 !important; }
+/* volume rows */
+html body.gd-ps.gd-menu #guide .gd-body .pc-stat { flex-wrap:wrap !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-stat .pc-tx small { display:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-num { position:static !important; order:3 !important; font-style:normal !important; font-size:calc(var(--w) * 1.3) !important; font-weight:400 !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-num i { font-style:normal !important; font-size:calc(var(--w) * 1) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-bar { display:block !important; order:4 !important; flex:0 0 100% !important; height:calc(var(--w) * .5) !important; margin-top:calc(var(--w) * .1) !important; border-radius:99px !important; background:rgba(255,255,255,.18) !important; overflow:hidden !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-bar i { display:block !important; height:100% !important; width:var(--psv, 0%) !important; border-radius:99px !important; background:#fff !important; }
+/* pills */
+html body.gd-ps.gd-menu #guide .gd-body .pc-pillw, html body.gd-ps.gd-menu #guide .gd-body .pc-pilld { justify-content:center !important; min-height:calc(var(--w) * 4.4) !important; margin:calc(var(--w) * .3) calc(var(--w) * .3) calc(var(--w) * .5) !important; width:calc(100% - var(--w) * .6) !important; border-radius:99px !important; box-shadow:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-pillw { background:#fff !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-pilld { background:rgba(255,255,255,.1) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-pillw .pc-ic, html body.gd-ps.gd-menu #guide .gd-body .pc-pilld .pc-ic, html body.gd-ps.gd-menu #guide .gd-body .pc-pillw small, html body.gd-ps.gd-menu #guide .gd-body .pc-pilld small { display:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-pillw .pc-tx, html body.gd-ps.gd-menu #guide .gd-body .pc-pilld .pc-tx { justify-content:center !important; text-align:center !important; flex:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-pillw b { color:#0a0c14 !important; font-weight:700 !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-pilld b { font-weight:700 !important; }
+html body.gd-ps.gd-menu.gd-row #guide .gd-body .pc-pillw:focus, html body.gd-ps.gd-menu.gd-row #guide .gd-body .pc-pilld:focus { box-shadow:0 0 0 calc(var(--w) * .18) #fff, 0 0 0 calc(var(--w) * .36) rgba(10,12,20,.9) !important; }
+html body.gd-ps.gd-menu.gd-row #guide .gd-body .pc-pilld:focus { background:rgba(255,255,255,.2) !important; }
+/* Game Base tabs, party count, profile header */
+html body.gd-ps.gd-menu #guide .gd-body .pc-gbt { display:flex !important; flex:none !important; gap:calc(var(--w) * 2.2) !important; padding:calc(var(--w) * .2) calc(var(--w) * .9) calc(var(--w) * .8) !important; font-size:calc(var(--w) * 1.45) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-gbt span { display:flex !important; align-items:center !important; gap:calc(var(--w) * .5) !important; color:rgba(255,255,255,.4) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-gbt span.on { color:#fff !important; font-weight:600 !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-gbt i { position:relative !important; top:calc(var(--w) * -.4) !important; padding-left:calc(var(--w) * .9) !important; font-style:normal !important; font-size:calc(var(--w) * .85) !important; color:rgba(255,255,255,.7) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-gbt i::before { content:'' !important; position:absolute !important; left:0 !important; top:calc(var(--w) * .25) !important; width:calc(var(--w) * .5) !important; height:calc(var(--w) * .5) !important; border-radius:50% !important; background:#3be07a !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-ct { display:block !important; flex:none !important; margin-left:auto !important; padding:0 calc(var(--w) * .5) !important; border:1px solid rgba(255,255,255,.6) !important; font-style:normal !important; font-size:calc(var(--w) * .85) !important; line-height:1.5 !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-prof { display:flex !important; flex:none !important; align-items:center !important; gap:calc(var(--w) * 1.3) !important; padding:calc(var(--w) * .8) calc(var(--w) * 1) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-prof .pc-av { flex:none !important; width:calc(var(--w) * 5) !important; height:calc(var(--w) * 5) !important; border-radius:50% !important; overflow:hidden !important; box-shadow:0 0 0 calc(var(--w) * .14) rgba(255,255,255,.85) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-prof .pc-av > * { width:100% !important; height:100% !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-prof .pc-tx { flex-direction:column !important; align-items:flex-start !important; justify-content:center !important; gap:calc(var(--w) * .3) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-prof .pc-tx b { font-size:calc(var(--w) * 1.6) !important; font-weight:600 !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-prof .pc-tx small { max-width:none !important; text-align:left !important; font-size:calc(var(--w) * 1) !important; }
+/* people rows */
+html body.gd-ps #guide .gd-body .gd-fa { position:relative !important; flex:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-fr .gd-fa, html body.gd-ps.gd-menu #guide .gd-body .pc-mem .gd-fa { width:calc(var(--w) * 3.6) !important; height:calc(var(--w) * 3.6) !important; font-size:calc(var(--w) * 1.5) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-fr .gd-ft, html body.gd-ps.gd-menu #guide .gd-body .pc-mem .pc-tx { flex:1 !important; min-width:0 !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-fr .gd-ft { display:flex !important; flex-direction:column !important; gap:calc(var(--w) * .2) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-fr .gd-ft b { font-size:calc(var(--w) * 1.3) !important; font-weight:500 !important; color:#fff !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-fr .gd-ft small { font-size:calc(var(--w) * 1) !important; color:rgba(255,255,255,.55) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-rc .gd-rci { position:static !important; flex:none !important; width:calc(var(--w) * 4.2) !important; height:calc(var(--w) * 4.2) !important; border-radius:calc(var(--w) * .4) !important; background-size:cover !important; background-position:center !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-rc > span { display:flex !important; flex-direction:column !important; min-width:0 !important; padding:0 !important; }
+/* Spotify card + volume */
+html body.gd-ps.gd-menu #guide .gd-body .gd-np { width:100% !important; margin:0 0 calc(var(--w) * .5) !important; padding:calc(var(--w) * 1.1) !important; box-sizing:border-box !important; border:0 !important; border-radius:calc(var(--w) * .8) !important; background:rgba(255,255,255,.06) !important; }
+html body.gd-ps #guide .gd-body .gd-npc { width:calc(var(--w) * 5) !important; height:calc(var(--w) * 5) !important; border-radius:calc(var(--w) * .6) !important; }
+html body.gd-ps #guide .gd-body .gd-npt b { font-size:calc(var(--w) * 1.3) !important; color:#fff !important; }
+html body.gd-ps #guide .gd-body .gd-npt small { font-size:calc(var(--w) * .95) !important; color:rgba(255,255,255,.7) !important; opacity:1 !important; }
+html body.gd-ps #guide .gd-body .gd-nb:focus { outline:none !important; transform:none !important; box-shadow:0 0 0 calc(var(--w) * .2) #fff !important; background:rgba(255,255,255,.28) !important; color:#fff !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-vol { width:100% !important; margin:calc(var(--w) * .5) 0 0 !important; padding:calc(var(--w) * .6) calc(var(--w) * .9) !important; border:0 !important; border-radius:99px !important; background:rgba(255,255,255,.1) !important; color:#fff !important; font-size:calc(var(--w) * 1) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .gd-vol:focus { outline:none !important; background:rgba(255,255,255,.2) !important; box-shadow:0 0 0 calc(var(--w) * .18) #fff !important; }
+
+html body.gd-ps #guide .gd-tabs, html[data-skin] body.gd-ps #guide .gd-tabs, html body.gd-ps #guide-out .gd-tabs, html[data-skin] body.gd-ps #guide-out .gd-tabs { background:none !important; border:0 !important; border-bottom:0 !important; box-shadow:none !important; backdrop-filter:none !important; }
+/* v1203: win over the old skin rules (no wash, no side line), and a slightly smaller scale */
+html body.gd-ps #guide, html body.gd-ps #guide-out, html[data-skin] body.gd-ps #guide, html[data-skin] body.gd-ps #guide-out { --w: calc(min(1vw, 1.7778vh) * var(--ui) * .88) !important; }
+html body.gd-ps #guide .gd-p, html[data-skin] body.gd-ps #guide .gd-p, html body.gd-ps #guide-out .gd-p, html[data-skin] body.gd-ps #guide-out .gd-p { position:absolute !important; inset:0 !important; width:auto !important; height:auto !important; background:none !important; background-image:none !important; border:0 !important; border-right:0 !important; box-shadow:none !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+html body.gd-ps #guide .gd-dim, html[data-skin] body.gd-ps #guide .gd-dim, html body.gd-ps #guide-out .gd-dim, html[data-skin] body.gd-ps #guide-out .gd-dim { background:linear-gradient(180deg, rgba(6,10,28,.30) 0%, rgba(6,10,28,.38) 60%, rgba(4,6,18,.62) 100%) !important; backdrop-filter:blur(16px) saturate(.95) !important; -webkit-backdrop-filter:blur(16px) saturate(.95) !important; }
+
+html body.gd-ps.gd-menu #guide .gd-body { max-height:calc(100vh - var(--w) * 26) !important; }
+/* v1208: opening animation, like the Xbox menu: the screen softens, the icon bar glides up, then the cards or the list rise in */
+html body.gd-ps #guide .gd-tabs { transition:transform .6s var(--spring) .04s, opacity .35s var(--smooth) .04s !important; }
+html body.gd-ps #guide:not(.on) .gd-tabs { transform:translate(-50%, calc(var(--w) * 4)) !important; opacity:0 !important; }
+html body.gd-ps #guide .gd-body { transition:transform .65s var(--spring) .12s, opacity .4s var(--smooth) .12s !important; }
+html body.gd-ps #guide:not(.on) .gd-body { transform:translateY(calc(var(--w) * 3)) !important; opacity:0 !important; }
+html body.gd-ps #guide .gd-clock, html body.gd-ps #guide .gd-cust { transition:opacity .4s var(--smooth) .1s, transform .5s var(--spring) .1s !important; }
+html body.gd-ps #guide:not(.on) .gd-clock { opacity:0 !important; transform:translateY(calc(var(--w) * -1)) !important; }
+html body.gd-ps #guide:not(.on) .gd-cust { opacity:0 !important; }
+html body.gd-ps #guide .gd-dim { transition:opacity .45s var(--smooth) !important; }
+
+html body.gd-ps .pc-hint, html body.gd-ps #guide .pc-hint { display:none !important; }
+
+/* v1210: achievements scroll in whole rows like the library: no edge fade, nothing half-cut at the top */
+.v3 .ascr, body.wp .v3 .ascr { -webkit-mask-image:none !important; mask-image:none !important; padding-top:0 !important; }
+
+.v3 .avart { aspect-ratio:4/3 !important; }
+.v3 .avgrid { position:relative; }
+
+/* v1213: achievements redesign - one uniform grid, fixed card size, whole rows only */
+html body .v3 .ascr { padding:calc(var(--w) * .8) calc(var(--w) * 2) calc(var(--w) * .45) !important; overflow:hidden !important; scroll-behavior:auto !important; }
+html body .v3 .avgrid { grid-template-columns:repeat(6, 1fr) !important; grid-auto-rows:calc(var(--w) * 15.2) !important; gap:calc(var(--w) * 1) !important; }
+html body .v3 .avc { height:100% !important; }
+html body .v3 .avart { aspect-ratio:auto !important; flex:1 1 0 !important; min-height:0 !important; }
+html body .v3 .avcap { flex:none !important; }
+html body .v3 .ahd { padding-top:calc(var(--w) * 3.2) !important; padding-bottom:calc(var(--w) * .6) !important; }
+/* v1214: full game names (two lines), no sliver of the next row under the list */
+html body .v3 .avcap b { white-space:normal !important; display:-webkit-box !important; -webkit-line-clamp:2; -webkit-box-orient:vertical; line-height:1.2; font-size:calc(var(--w) * .92) !important; min-height:2.4em; }
+html body .v3 .avgrid { grid-auto-rows:calc(var(--w) * 16.4) !important; }
+/* v1216: header sits lower so the ring and the stat tiles are never cut at the top */
+html body .v3 .ahd:not(.ahero) { padding-top:calc(var(--w) * 6) !important; padding-bottom:calc(var(--w) * .8) !important; }
+html body .v3 .ahd:not(.ahero) .aringbig, html body .v3 .ahd:not(.ahero) .avt { overflow:visible !important; }
+/* v1217: whole cover art is always shown (never cropped), on a soft blurred copy of itself; rows sit lower, focus frame never clipped */
+html body .v3 .avart::before { content:''; position:absolute; inset:-12%; background:var(--cov) center/cover no-repeat; filter:blur(16px) brightness(.55) saturate(1.2); z-index:0; }
+html body .v3 .avart .acov { z-index:1 !important; background-size:contain !important; background-repeat:no-repeat !important; background-position:center !important; }
+html body .v3 .avart::after { z-index:2; }
+html body .v3 .avc:focus .avart .acov { transform:none !important; filter:brightness(1.06) !important; }
+html body .v3 .ascr { padding-top:calc(var(--w) * .98) !important; }
+html body .v3 .ahd:not(.ahero) { padding-bottom:calc(var(--w) * 1.6) !important; }
+html body .v3 .avart .acov { background-color:transparent !important; box-shadow:none !important; }
+/* v1218: square art tiles (Xbox style): the cover fills a square exactly, caption below, outline hugs the card */
+html body .v3 .avgrid { grid-template-columns:repeat(7, 1fr) !important; grid-auto-rows:auto !important; gap:calc(var(--w) * .9) !important; }
+html body .v3 .avc { height:auto !important; aspect-ratio:1 / 1.46 !important; }
+html body .v3 .avart { flex:none !important; aspect-ratio:1 / 1 !important; width:100% !important; min-height:0 !important; }
+html body .v3 .avart::before { inset:0 !important; filter:blur(14px) brightness(.6) saturate(1.2) !important; transform:scale(1.2); }
+html body .v3 .avart .acov { inset:0 !important; width:100% !important; height:100% !important; }
+html body .v3 .avc:focus { transform:none !important; }
+html body .v3 .avcap { flex:1 1 auto !important; justify-content:space-between; padding:calc(var(--w) * .6) calc(var(--w) * .75) calc(var(--w) * .7) !important; }
+html body .v3 .avcap b { font-size:calc(var(--w) * .85) !important; min-height:0 !important; -webkit-line-clamp:2; }
+html body .v3 .avcap small { font-size:calc(var(--w) * .68) !important; }
+/* v1219: the widget and the Controller page show the SCUF Omega when the PlayStation controller is in use, the Valor Pro for Xbox */
+body.pad-ps .wp-xb { display:none !important; }
+body:not(.pad-ps) .wp-ps { display:none !important; }
+
+/* v1227 achievement detail: square art header + scrolling list */
+html body .v3 .ahd.ahero .avart.hero { flex:none !important; width:calc(var(--w) * 6.6) !important; height:calc(var(--w) * 6.6) !important; aspect-ratio:1/1 !important; border-radius:calc(var(--w) * .9); order:0; }
+html body .v3 .ascr:has(.agrid.one) { overflow-y:auto !important; overflow-x:hidden !important; scrollbar-width:none; padding-bottom:calc(var(--w) * 5) !important; }
+html body .v3 .ascr:has(.agrid.one)::-webkit-scrollbar { display:none; }
+html body .v3 .avart.hero::after { display:none !important; }
+/* v1228 achievement detail: list starts lower, clean fade instead of a hard cut */
+html body .v3 .ascr:has(.agrid.one) { margin-top:calc(var(--w) * 1.6) !important; padding-top:calc(var(--w) * 1) !important; scroll-padding-top:calc(var(--w) * 1) !important; scroll-padding-bottom:calc(var(--w) * 2) !important; -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 calc(var(--w) * 1.1), #000 calc(100% - var(--w) * 1.6), transparent 100%) !important; mask-image:linear-gradient(to bottom, transparent 0, #000 calc(var(--w) * 1.1), #000 calc(100% - var(--w) * 1.6), transparent 100%) !important; }
+
+/* v1230 Game Base: small mute / deafen / share buttons while you are in a voice channel */
+html body.gd-ps.gd-menu #guide .gd-body .pc-vbar { display:flex !important; gap:calc(var(--w) * .8); justify-content:center; margin:calc(var(--w) * .6) 0 calc(var(--w) * .6) !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-vbar .pc-vb { flex:0 0 auto !important; width:calc(var(--w) * 4.6) !important; max-width:calc(var(--w) * 4.6) !important; min-width:0 !important; min-height:0 !important; height:calc(var(--w) * 4.6) !important; max-height:calc(var(--w) * 4.6) !important; padding:0 !important; border-radius:50% !important; display:flex !important; flex-direction:column; align-items:center; justify-content:center; background:rgba(255,255,255,.1) !important; position:relative; margin:0 !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-vbar .pc-vb .pc-ic { width:calc(var(--w) * 2.2) !important; height:calc(var(--w) * 2.2) !important; margin:0 !important; display:block !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-vbar .pc-vb .pc-ic svg { width:100% !important; height:100% !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-vbar .pc-vb small { display:none !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-vbar .pc-vb.on { background:#e5484d !important; }
+html body.gd-ps.gd-menu #guide .gd-body .pc-vbar .pc-vb.on::after { content:''; position:absolute; left:22%; right:22%; top:50%; height:calc(var(--w) * .22); background:#fff; transform:rotate(-45deg); border-radius:2px; }
+html body.gd-ps.gd-menu.gd-row #guide .gd-body .pc-vbar .pc-vb:focus { box-shadow:0 0 0 calc(var(--w) * .18) #fff, 0 0 0 calc(var(--w) * .45) rgba(255,255,255,.25) !important; background:rgba(255,255,255,.22) !important; }
+html body.gd-ps.gd-menu.gd-row #guide .gd-body .pc-vbar .pc-vb.on:focus { background:#f0585d !important; }
+
+/* v1236 sign-in page: the PS5 boot video behind the tiles */
+#signbgv { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; background:#000; opacity:0; transition:opacity 1.4s ease; pointer-events:none; }
+#signbgv[hidden] { display:none; }
+#signbgv.on { opacity:1; }
+#intro .press { z-index:1; }
+
+/* v1237 sign-in video: the logo shows first, the tiles come in after; no black patch, no filters */
+#intro.signbg-wait .press { opacity:0 !important; pointer-events:none !important; }
+#intro:has(#signbgv.on) .boot, #intro:has(#signbgv.on) #introfix, #intro:has(#signbgv.on) #introc { display:none !important; }
+#signbgv { filter:none !important; image-rendering:auto; }
+/* v1238 the sign-in page's own black layer hid the video: with the video on, it becomes a light dim instead */
+#intro:has(#signbgv.on) #sign .sg-bg { background:radial-gradient(80% 70% at 50% 45%, rgba(0,0,0,0) 0%, rgba(0,0,0,.35) 100%) !important; }
+#intro:has(#signbgv.on) #sign .sg-bg::before, #intro:has(#signbgv.on) #sign .sg-bg::after, #intro:has(#signbgv.on) #sign .sg-bg .sg-shoot { display:none !important; }
+#intro.press-on:has(#signbgv.on) { background:transparent !important; }
+
+/* v1240 the looping last scene sits right on top of the boot video */
+#signloop { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; background:transparent; opacity:0; pointer-events:none; filter:none !important; }
+#signloop[hidden] { display:none; }
+#signloop.on { opacity:1; }
+
+/* v1242: PS login-screen video behind the sign-in page; tiles open on the PS button, the picture dims a little so the baked-in text stays out of the way */
+#intro.sign-revealed:has(#signbgv.on) #sign .sg-bg { background:radial-gradient(80% 70% at 50% 45%, rgba(0,0,0,.45) 0%, rgba(0,0,0,.7) 100%) !important; transition:background .8s ease; }
+#intro.signbg-wait .press, #intro.signbg-wait #sign { opacity:0 !important; pointer-events:none !important; }
+#intro.sign-revealed .press { transition:opacity .7s ease; }
+
+/* v1243: my own PS5 start screen */
+#psl { position:absolute; inset:0; z-index:0; opacity:0; transition:opacity .6s ease; pointer-events:none; background:#000; }
+#psl[hidden] { display:none; } #psl.on { opacity:1; }
+#psl canvas { position:absolute; inset:0; width:100%; height:100%; }
+#psl .psl-big { position:absolute; left:50%; top:50%; width:15vh; transform:translate(-50%,-50%); opacity:0; filter:drop-shadow(0 0 22px rgba(255,255,255,.25)); }
+#psl .psl-txt { position:absolute; left:0; right:0; top:21%; text-align:center; font:300 2.3vh/1.2 'Segoe UI Light','Segoe UI',Arial,sans-serif; color:#f2f0f0; letter-spacing:.01em; opacity:0; text-shadow:0 0 14px rgba(0,0,0,.5); }
+#psl .psl-disc { position:absolute; left:50%; top:52%; width:9.8vh; height:9.8vh; transform:translate(-50%,-50%); opacity:0; }
+#psl .psl-disc i { position:absolute; inset:0; border-radius:50%; border:.22vh solid rgba(255,255,255,.9); box-shadow:0 0 2.4vh rgba(255,255,255,.35), inset 0 0 1.6vh rgba(255,255,255,.2); animation:pslRing 2.6s ease-in-out infinite; }
+#psl .psl-disc u { position:absolute; inset:0; border-radius:50%; border:.15vh solid rgba(255,255,255,.7); animation:pslRing2 2.6s ease-out infinite; }
+#psl .psl-disc div { position:absolute; inset:12%; border-radius:50%; background:#fff; display:grid; place-items:center; box-shadow:0 0 2vh rgba(255,255,255,.3); }
+#psl .psl-disc div img { width:58%; filter:brightness(0); transform:translateY(-1%); }
+@keyframes pslRing { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(.93); opacity:.75; } }
+@keyframes pslRing2 { 0% { transform:scale(1); opacity:.7; } 100% { transform:scale(1.45); opacity:0; } }
+#intro.sign-revealed #psl .psl-txt, #intro.sign-revealed #psl .psl-disc { opacity:0 !important; transition:opacity .5s ease; }
+#intro.sign-revealed:has(#signbgv.on) #sign .sg-bg { background:radial-gradient(80% 70% at 50% 45%, rgba(0,0,0,.25) 0%, rgba(0,0,0,.6) 100%) !important; }
+
+/* v1245: "Add new" is a translucent dark gray disc that sits on the background */
+html body #sign .sg-av.plus { background:rgba(40,42,50,.55) !important; border:1px solid rgba(255,255,255,.12) !important; backdrop-filter:blur(8px); box-shadow:inset 0 0 0 1px rgba(255,255,255,.04) !important; color:rgba(255,255,255,.85) !important; }
+
+/* v1246: PlayStation sign-in wording, as on the real console */
+html body #sign.pss .sg-title { font-family:'Segoe UI Light','Segoe UI',Arial,sans-serif !important; font-weight:300 !important; letter-spacing:.01em !important; font-size:calc(var(--w) * 2.5) !important; text-shadow:0 0 14px rgba(0,0,0,.5) !important; }
+html body #sign.pss .sg-sub { display:block !important; font:300 calc(var(--w) * 1.15)/1.3 'Segoe UI Light','Segoe UI',Arial,sans-serif; color:rgba(255,255,255,.72); text-align:center; margin-top:calc(var(--w) * .5); }
+
+/* v1247: the PS5 button glyphs the way the real console draws them: light gray, see-through, the Options button as a small pill with three lines */
+html body .gl.ps { color:rgba(255,255,255,.92) !important; background:rgba(255,255,255,.12) !important; border:1px solid rgba(255,255,255,.5) !important; box-shadow:none !important; backdrop-filter:blur(6px); }
+html body .gl.ps .ps-x, html body .gl.ps .ps-o, html body .gl.ps .ps-s, html body .gl.ps .ps-t { color:rgba(255,255,255,.92) !important; }
+html body .gl.ps.pt.gstart, html body .gl.ps.pt.gback { font-size:0 !important; min-width:0 !important; width:1.9rem !important; height:1.05rem !important; border-radius:.55rem !important; padding:0 !important; position:relative; }
+html body .gl.ps.pt.gstart::before, html body .gl.ps.pt.gback::before { content:''; position:absolute; left:50%; top:50%; width:.9rem; height:.5rem; transform:translate(-50%,-50%); background:linear-gradient(rgba(255,255,255,.92),rgba(255,255,255,.92)) 0 0/100% 1.5px no-repeat, linear-gradient(rgba(255,255,255,.92),rgba(255,255,255,.92)) 0 50%/100% 1.5px no-repeat, linear-gradient(rgba(255,255,255,.92),rgba(255,255,255,.92)) 0 100%/100% 1.5px no-repeat; }
+html body .gl.ps.pt.gback::before { height:.4rem; background:linear-gradient(rgba(255,255,255,.92),rgba(255,255,255,.92)) 0 0/100% 1.5px no-repeat, linear-gradient(rgba(255,255,255,.92),rgba(255,255,255,.92)) 0 100%/100% 1.5px no-repeat; }
+html body #sign .sg-opt b:not(.gl) { font-weight:400 !important; color:rgba(255,255,255,.85); }
+html body #sign .sg-sel .gl { background:rgba(255,255,255,.12) !important; }
+
+/* v1248: the sign-in page fades in smoothly when the PS button is pressed; the options dropdown wears the same gray glass */
+html body #intro .press { transition:opacity 1.2s cubic-bezier(.4,0,.2,1) !important; }
+html body #intro .press .sg-wrap, html body #intro .press .sg-title, html body #intro .press .sg-sub { transition:transform 1.2s cubic-bezier(.2,.7,.2,1), opacity 1.2s ease; }
+html body #intro.signbg-wait .press .sg-wrap { transform:translateY(3vh) !important; }
+html body #intro.signbg-wait .press .sg-title, html body #intro.signbg-wait .press .sg-sub { transform:translateY(1.5vh); }
+html body #intro.signbg-wait #sign, html body #intro.signbg-wait .press { transition:opacity 1.2s cubic-bezier(.4,0,.2,1) !important; }
+#psl .psl-txt, #psl .psl-disc { transition:opacity .9s ease; }
+html body.intro-on #menu { background:rgba(36,38,46,.62) !important; backdrop-filter:blur(18px) saturate(1.1) !important; border:1px solid rgba(255,255,255,.14) !important; border-radius:1.1rem !important; box-shadow:0 1.2rem 3rem rgba(0,0,0,.45) !important; }
+html body.intro-on #menu .mh { color:rgba(255,255,255,.6) !important; border-color:rgba(255,255,255,.1) !important; }
+html body.intro-on #menu .mh::before { background:rgba(255,255,255,.6) !important; box-shadow:none !important; }
+html body.intro-on #menu .item { background:transparent !important; color:rgba(255,255,255,.88) !important; box-shadow:none !important; border:1px solid transparent !important; }
+html body.intro-on #menu .item:focus, html body.intro-on #menu .item.on { background:rgba(255,255,255,.2) !important; color:#fff !important; border:1px solid rgba(255,255,255,.55) !important; box-shadow:none !important; }
+html body.intro-on #menu .item::before, html body.intro-on #menu .item:focus::before { display:none !important; }
+html body.intro-on #menu .item.danger { color:#ffb3b3 !important; }
+
+/* v1249: the health warning of the real boot screen */
+#psl .psl-warn { position:absolute; left:16%; top:47%; width:68%; font:400 1.05vh/1.45 'Segoe UI',Arial,sans-serif; color:rgba(200,205,215,.62); letter-spacing:.04em; opacity:0; text-transform:uppercase; }
+
+/* v1250: the start screens fade slowly and evenly; the health warning is centered and larger, like the real console */
+#psl { transition:opacity 1.6s cubic-bezier(.4,0,.2,1) !important; }
+#psl .psl-warn { left:50% !important; width:74% !important; transform:translateX(-50%); text-align:center !important; font-size:1.5vh !important; top:46% !important; line-height:1.6 !important; color:rgba(210,215,225,.7) !important; }
+#psl .psl-txt { font-size:2.8vh !important; top:20.5% !important; width:100%; text-align:center; }
+#intro.boot-on .boot { transition:opacity 3.4s cubic-bezier(.45,0,.2,1) !important; }
+
+/* v1261: stand-in drawn controller */
+.padfb { display:block; color:rgba(255,255,255,.92); }
+.padfb svg { width:100%; height:auto; filter:drop-shadow(0 .6rem 1rem rgba(0,0,0,.5)); }
+.w2.wx .padfb { position:absolute !important; right:6cqw !important; top:8cqh !important; width:34cqw !important; }
