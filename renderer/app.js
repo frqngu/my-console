@@ -208,7 +208,7 @@ function npBarTick() {
 }
 setInterval(npBarTick, 250);
 function npGuidePatch() {
-  try { SND.spot(homeNp.playing); } catch {}   // Spotify playing = no ambient music
+  try { SND.spot(homeNp.playing || spTitlePlaying); } catch {}   // Spotify playing = no ambient music
   if (!guideOn || !homeNp.on) return;
   const set = (id, v) => { const e = document.getElementById(id); if (e && e.textContent !== v) e.textContent = v; };
   set('gnpb', homeNp.title); set('gnps', homeNp.artist);
@@ -707,7 +707,9 @@ function assignBind(mode, act, name) {
 /* ---------- the guide: a panel that slides in from the left on the Xbox button ---------- */
 /* Spotify in the Xbox-button menu: the song that is playing and a way back in */
 let spLive = { open: false, title: '' };
-setInterval(() => { try { window.consoleApi.spState().then((s) => { if (s) spLive = s; }).catch(() => {}); } catch {} }, 3000);
+let spTitlePlaying = false;   // v1264: Spotify is playing in the console's own player (its title shows the song), even when the Spotify account is not signed in for the controls
+function spTitleOf(s) { if (!s || !s.open) return ''; const t = String(s.title || '').replace(/\s*[\u2022\-\u2013|]\s*Spotify\s*$/i, '').trim(); return (t && !/^spotify(\s*[\u2013\-]\s*web player.*)?$/i.test(t) && !/web player/i.test(t)) ? t : ''; }
+setInterval(() => { try { window.consoleApi.spState().then((s) => { if (s) { spLive = s; try { spTitlePlaying = !!spTitleOf(s); if (!homeNp.on) SND.spot(spTitlePlaying); } catch {} } }).catch(() => {}); } catch {} }, 3000);
 function spPlayingNow() {
   let title = '';
   if (spLive.open) { const t = String(spLive.title || '').replace(/\s*[\u2022\-\u2013|]\s*Spotify\s*$/i, '').trim(); if (t && !/^spotify(\s*[\u2013\-]\s*web player.*)?$/i.test(t) && !/web player/i.test(t)) title = t; }
@@ -3314,6 +3316,9 @@ window.addEventListener('keydown', (e) => {   // v1093: some controllers send th
   if (keyDbgN++ < 40) { try { window.consoleApi.lagLog('key down: ' + e.key + ' | ' + e.code + ' | ' + e.keyCode); } catch {} }
   if (padKind() === 'ps' && e.code === 'BrowserHome') { psKeyAt = performance.now(); psKeyFired = false; setTimeout(() => { if (psKeyAt && !psKeyFired) { psKeyFired = true; if (!introOn && !osk && !menu && !launching && !guideOn) openGuide(); } }, 450); e.preventDefault(); }
 }, true);
+// v1263: way in without the PS button (keyboard Enter/Space or a mouse click on the start screen), in case Windows or Steam keeps the PS button from reaching the console
+window.addEventListener('keydown', (e) => { if (!e.repeat && (e.key === 'Enter' || e.key === ' ') && introOn && introStage === 1 && signPressWait) { e.preventDefault(); signReveal(); } }, true);
+window.addEventListener('mousedown', () => { if (introOn && introStage === 1 && signPressWait) signReveal(); }, true);
 window.addEventListener('keyup', (e) => {
   if (padKind() === 'ps' && e.code === 'BrowserHome' && psKeyAt) { const fired = psKeyFired; psKeyAt = 0; if (!fired && introOn && introStage === 1 && signPressWait) signReveal(); else if (!fired && !introOn && !osk) { try { if (guideOn) closeGuide(); else { if (menu) closeMenu(false); if (screen !== 'home') show('home'); } SND.play('tab'); } catch {} } e.preventDefault(); }
 }, true);
@@ -3632,7 +3637,7 @@ function psLoginShow(on, boot) {   // my own PS5 start screen: the PlayStation l
   let dim = 0;
   const frame = (now) => {
     if (!psl || psl.hidden) return; const t = (now - t0) / 1000;
-    const logoA = ss(.3, 1.8, t) * (1 - ss(2, 3.8, t)), discA = ss(2, 4, t) * (1 - ss(6.2, 7.6, t)), warnA = ss(2.6, 4.2, t) * (1 - ss(5, 6, t)), blueB = ss(4.8, 6, t), dustA = ss(6, 7.4, t), spotA = ss(6.8, 9.8, t), uiA = ss(9.6, 11.4, t), blueA = discA;
+    const logoA = ss(.3, 1.8, t) * (1 - ss(2, 3.8, t)), discA = ss(2, 4, t) * (1 - ss(6.4, 9.6, t)), warnA = ss(2.6, 4.2, t) * (1 - ss(5, 6, t)), blueB = ss(4.8, 6, t), dustA = ss(6, 7.4, t), spotA = ss(6.2, 9.4, t), uiA = ss(9.6, 11.4, t), blueA = discA;
     cx.globalCompositeOperation = 'source-over'; cx.fillStyle = '#000'; cx.fillRect(0, 0, W, H);
     const bg = cx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, 'rgba(15,17,28,' + (.25 + .75 * spotA) + ')'); bg.addColorStop(1, 'rgba(30,28,36,' + (.2 + .8 * spotA) + ')'); cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
     cx.globalCompositeOperation = 'lighter';
