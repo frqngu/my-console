@@ -1018,6 +1018,11 @@ ipcMain.handle('game:action', async (_e, gid, act) => {
 // ---- game library (never modifies or deletes game files) ----
 const libFile = () => path.join(app.getPath('userData'), 'library.json');
 function loadLib() {
+  const l0 = loadLib0();
+  try { if (l0.meta) for (const k of Object.keys(l0.meta)) { const m = l0.meta[k]; if (m && m.infoTried && !m.description && m.infoVer !== VERSION) { delete m.infoTried; m.infoVer = VERSION; } } } catch {}   // v1266: games whose info lookup failed on an older version get one automatic retry per version
+  return l0;
+}
+function loadLib0() {
   try {
     const l = JSON.parse(fs.readFileSync(libFile(), 'utf8'));
     return { folders: (l.folders || []).filter((f) => typeof f === 'string'), games: Array.isArray(l.games) ? l.games.map((g) => (g && /^ROBLOXCorporation\./i.test(g.pfn || '') ? { ...g, title: 'Roblox' } : g)).filter((g) => !(g && /^Microsoft\.[0-9A-F]{8,}/i.test(g.title || ''))) : [], excluded: Array.isArray(l.excluded) ? l.excluded : [], owned: l.owned && typeof l.owned === 'object' ? l.owned : {}, manual: Array.isArray(l.manual) ? l.manual : [], meta: l.meta && typeof l.meta === 'object' ? l.meta : {} };
@@ -1556,13 +1561,18 @@ ipcMain.handle('trailer:pick', async (_e, gid) => {
   } catch (e) { log('trailer failed: ' + e.message); return { error: 'Could not use that video.' }; }
 });
 let trAutoBusy = false;
+function noTC(t) { return String(t || '').replace(/^\s*tom clancy[\u2019'`]?s\s+/i, ''); }   // v1265: "Tom Clancy's Ghost Recon Breakpoint" and "Ghost Recon Breakpoint" are the same game (the stores include the prefix, Ubisoft's own list does not)
 async function steamAppFor(g) {
   if (g.steamId && /^\d+$/.test(g.steamId)) return g.steamId;
   try {
-    const r = await fetch('https://store.steampowered.com/api/storesearch/?term=' + encodeURIComponent(coverTitle(g.title)) + '&l=english&cc=US', { signal: AbortSignal.timeout(12000) });
-    const j = await r.json(), want = norm(coverTitle(g.title));
-    const hit = (j.items || []).find((x) => norm(coverTitle(x.name)) === want);
-    return hit ? String(hit.id) : '';
+    const want = norm(noTC(coverTitle(g.title)));
+    for (const term of [coverTitle(g.title), noTC(coverTitle(g.title))]) {
+      const r = await fetch('https://store.steampowered.com/api/storesearch/?term=' + encodeURIComponent(term) + '&l=english&cc=US', { signal: AbortSignal.timeout(12000) });
+      const j = await r.json();
+      const hit = (j.items || []).find((x) => x.type === 'app' && norm(noTC(coverTitle(x.name))) === want) || (j.items || []).find((x) => norm(noTC(coverTitle(x.name))) === want);
+      if (hit) return String(hit.id);
+    }
+    return '';
   } catch { return ''; }
 }
 async function steamMovie(appid) {
@@ -3566,7 +3576,7 @@ ipcMain.handle('logo:sgdb', async (_e, title) => {
       const H = { Authorization: 'Bearer ' + key }, ct = coverTitle(t) || t;
       const sr = await fetch('https://www.steamgriddb.com/api/v2/search/autocomplete/' + encodeURIComponent(ct), { headers: H, signal: AbortSignal.timeout(15000) });
       const list = sr.ok ? ((await sr.json()).data || []) : [];
-      const hit = list.find((x) => norm(x.name) === norm(ct)) || list.find((x) => normName(x.name) === normName(ct)) || list.find((x) => normName(x.name).replace(/^tom clancys? /, '') === normName(ct).replace(/^tom clancys? /, ''));
+      const hit = list.find((x) => norm(x.name) === norm(ct)) || list.find((x) => normName(x.name) === normName(ct)) || list.find((x) => normName(noTC(x.name)) === normName(noTC(ct)));
       if (hit && hit.id) {
         const gr = await fetch('https://www.steamgriddb.com/api/v2/logos/game/' + hit.id + '?types=static&mimes=image/png&nsfw=false&humor=false', { headers: H, signal: AbortSignal.timeout(15000) });
         const g = gr.ok ? ((await gr.json()).data || []).filter((x) => x && /^https:\/\/cdn2?\.steamgriddb\.com\//.test(x.url || ''))[0] : null;
@@ -3891,7 +3901,7 @@ async function coverFetch(title, f) {
       const sr = await fetch('https://www.steamgriddb.com/api/v2/search/autocomplete/' + encodeURIComponent(title), { headers: H, signal: AbortSignal.timeout(15000) });
       if (sr.status === 401 || sr.status === 403) { coverErr = 'SteamGridDB rejected the key. Check it in Settings > System.'; throw new Error(coverErr); }
       const list = sr.ok ? ((await sr.json()).data || []) : [];
-      const hit = list.find((x) => norm(x.name) === norm(title)) || list.find((x) => normName(x.name) === normName(title)) || list.find((x) => norm(x.name).startsWith(norm(title)) || norm(title).startsWith(norm(x.name)));
+      const hit = list.find((x) => norm(x.name) === norm(title)) || list.find((x) => normName(x.name) === normName(title)) || list.find((x) => normName(noTC(x.name)) === normName(noTC(title))) || list.find((x) => norm(x.name).startsWith(norm(title)) || norm(title).startsWith(norm(x.name)));
       const id = hit && hit.id;
       if (id) {
         const gr = await fetch('https://www.steamgriddb.com/api/v2/grids/game/' + id + '?dimensions=600x900,660x930,342x482&types=static&nsfw=false&humor=false', { headers: H, signal: AbortSignal.timeout(15000) });
@@ -3901,14 +3911,14 @@ async function coverFetch(title, f) {
     }
     if (!ok) { const d = await igdbFind(title).catch((e) => { log('igdb: ' + e.message); return null; }); if (d && d.cover) ok = await getJpg(d.cover, f); }
     if (!ok) {   // the Steam store's own poster for the same game (Ubisoft and EA games are mostly on Steam too): exact name first, then a close name
-      const want = normName(title), strip = (s) => normName(s).replace(/^tom clancys? /, '').replace(/\b(year \d+|season \d+|the )\b/g, ' ').replace(/\s+/g, ' ').trim();
-      const terms = [title, title.replace(/^tom clancy'?s\s+/i, ''), title.split(/\s+/).slice(0, 3).join(' ')].filter((x, i, a) => x && a.indexOf(x) === i);
+      const want = normName(title), strip = (s) => normName(noTC(s)).replace(/\b(year \d+|season \d+|the )\b/g, ' ').replace(/\s+/g, ' ').trim();
+      const terms = [title, noTC(title), title.split(/\s+/).slice(0, 3).join(' ')].filter((x, i, a) => x && a.indexOf(x) === i);
       for (const term of terms) {
         if (ok) break;
         const r = await fetch('https://store.steampowered.com/api/storesearch/?l=english&cc=us&term=' + encodeURIComponent(term), { signal: AbortSignal.timeout(15000) });
         const items = (r.ok ? ((await r.json()).items || []) : []).filter((x) => x.type === 'app');
         const near = (x) => { const a = strip(x.name), b = strip(title); return a === b || (a.length >= 6 && b.length >= 6 && (a.startsWith(b) || b.startsWith(a))) && !/\b(soundtrack|dlc|demo|beta|dedicated server|season pass|artbook)\b/i.test(x.name); };
-        const m2 = items.find((x) => normName(x.name) === want) || items.filter(near).sort((p, q) => p.name.length - q.name.length)[0];
+        const m2 = items.find((x) => normName(x.name) === want || normName(noTC(x.name)) === normName(noTC(title))) || items.filter(near).sort((p, q) => p.name.length - q.name.length)[0];
         if (m2 && /^\d+$/.test(String(m2.id))) ok = (await getJpg('https://cdn.cloudflare.steamstatic.com/steam/apps/' + m2.id + '/library_600x900_2x.jpg', f)) || (await getJpg('https://cdn.cloudflare.steamstatic.com/steam/apps/' + m2.id + '/library_600x900.jpg', f)) || (await getJpg('https://cdn.cloudflare.steamstatic.com/steam/apps/' + m2.id + '/portrait.png', f));
       }
     }
@@ -4390,7 +4400,7 @@ async function msInfo(title) {   // Microsoft Store listing found by exact name:
       const q = new URLSearchParams({ query: t0, platformdependencyname: plat, productFamilyNames: 'Games', topProducts: '8', languages: 'en-US', market: 'US' });
       const j = await jget('https://displaycatalog.mp.microsoft.com/v7.0/productFamilies/autosuggest?' + q.toString());
       const c = ((j && j.Results) || []).flatMap((x) => x.Products || []).filter((p) => p && p.ProductId && p.Type === 'Game');
-      const hit = c.find((p) => xbNorm(p.Title) === want); if (hit) { pid = hit.ProductId; break; }
+      const hit = c.find((p) => xbNorm(p.Title) === want) || c.find((p) => xbNorm(noTC(p.Title)) === xbNorm(noTC(t0))); if (hit) { pid = hit.ProductId; break; }
     } catch {}
   }
   if (!pid) return null;
@@ -4404,7 +4414,9 @@ async function fetchInfo(l, g) {
   if (g.steamId && /^\d+$/.test(String(g.steamId))) {   // Steam games: official store info first
     try { const d = await steamInfo(String(g.steamId)); if (d && d.description) { const m0 = l.meta[g.id] || {}; l.meta[g.id] = { ...m0, ...d, infoTried: true, tried: true }; return true; } } catch (e) { log('steam info: ' + e.message); }
   }
-  for (const fn of [() => (g.source === 'Epic Games' ? epicInfo(g) : null), () => (g.source === 'GOG' ? gogInfoById(g) : null), () => msInfo(g.title)]) {   // v974: the store's own page by id, then the Microsoft Store: no keys
+  for (const fn of [() => (g.source === 'Epic Games' ? epicInfo(g) : null), () => (g.source === 'GOG' ? gogInfoById(g) : null),
+    async () => { const sid = await steamAppFor({ title: g.title }); return sid ? steamInfo(String(sid)) : null; },   // v1265: Ubisoft, EA and other launcher games that are also on Steam: the Steam page with the same name gives description, year, developer and publisher (no key)
+    () => msInfo(g.title)]) {   // v974: the store's own page by id, then the Microsoft Store: no keys
     try { const d = await fn(); if (d && d.description) { const m0 = l.meta[g.id] || {}; l.meta[g.id] = { ...m0, ...d, rating: m0.rating || 0, metacritic: m0.metacritic || 0, esrb: m0.esrb || '', playtime: m0.playtime || 0, infoTried: true, tried: true }; return true; } } catch (e) { log('game info: ' + e.message); }
   }
   { const st = loadSettings();   // IGDB first (like Playnite), then GOG's catalogue, then RAWG
@@ -5014,7 +5026,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1265';
+const VERSION = 'v1266';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 

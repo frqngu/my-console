@@ -484,6 +484,21 @@ function renderHints(str) {
 // HINTS-END
 function notifPush(t, gid) { t = String(t || '').trim(); if (!t) return; const f = notifHist[0]; if (f && f.t === t && Date.now() - f.at < 4000) return; notifHist.unshift({ t, at: Date.now(), gid: gid || '' }); if (notifHist.length > 30) notifHist.pop(); notifUnread = true; }
 function note(t, keep) { try { if (keep) notifPush(t, keep === true ? '' : keep); } catch {} const h = $('#hints'); h.classList.add('msg'); h.textContent = t; h.classList.remove('bump'); void h.offsetWidth; h.classList.add('bump'); clearTimeout(noteT); noteT = setTimeout(() => { h.classList.remove('msg'); h.innerHTML = renderHints(SCREENS[screen].hints); }, 5000); }
+let toastQ = [], toastBusy = false;
+function notify(title, body, gid, icon) {   // v1266: a real console pop-up (slides in at the top right, chime) and it is also saved in Control Center > Notifications
+  try { notifPush(body ? title + ': ' + body : title, gid); } catch {}
+  toastQ.push({ title: String(title || ''), body: String(body || ''), icon: icon || 'bell' }); if (toastQ.length > 4) toastQ.shift();
+  if (!toastBusy) toastNext();
+}
+function toastNext() {
+  const n = toastQ.shift(); if (!n) { toastBusy = false; return; }
+  toastBusy = true;
+  let el = document.getElementById('toast2'); if (!el) { el = document.createElement('div'); el.id = 'toast2'; document.body.appendChild(el); }
+  el.innerHTML = '<div class="tz-i">' + (ICON[n.icon] || ICON.bell || '') + '</div><div class="tz-t"><b>' + esc(n.title) + '</b>' + (n.body ? '<small>' + esc(n.body) + '</small>' : '') + '</div>';
+  el.classList.remove('out'); void el.offsetWidth; el.classList.add('on');
+  try { SND.play('on'); } catch {}
+  setTimeout(() => { el.classList.add('out'); el.classList.remove('on'); setTimeout(toastNext, 450); }, 5200);
+}
 
 /* ---------- controller-only lock: while a controller is connected, mouse and keyboard do nothing here ---------- */
 let kbOpen = false;   // true only while the Pause-key menu is open in a keyboard-and-mouse game
@@ -1629,7 +1644,18 @@ let lpTimer = 0;
 function updateLibPanel(g) {   // the panel on the right follows the game you have selected; its trailer starts a moment later
   const p = $('#lpanel'); if (!p || !g) return;
   if (p.dataset.gid === g.id) return;
-  SND.hush(false); p.dataset.gid = g.id; p.innerHTML = lpanelHtml(g);
+  SND.hush(false); p.dataset.gid = g.id;
+  {   // v1266: patch the panel in place (only what differs) instead of rebuilding it, so nothing blinks while you move between games
+    const tmp = document.createElement('div'); tmp.innerHTML = lpanelHtml(g);
+    const nk = [...tmp.children], ok = [...p.children];
+    if (!ok.length || nk.length !== ok.length || nk.some((e, i) => e.className !== ok[i].className)) p.innerHTML = tmp.innerHTML;
+    else nk.forEach((e, i) => {
+      const o = ok[i];
+      if (o.classList.contains('lpv')) { const a = o.querySelector('video'), b = e.querySelector('video'); if (!a && !b) { o.innerHTML = e.innerHTML; } else if (!(a && b && a.dataset.trailer === b.dataset.trailer)) { o.replaceWith(e); } }
+      else if (o.classList.contains('lhints')) { /* never changes */ }
+      else if (o.innerHTML !== e.innerHTML) o.innerHTML = e.innerHTML;
+    });
+  }
   applyCovers(); applyDynamic(false);
   clearTimeout(lpTimer);
   lpTimer = setTimeout(() => startTrailer('.lvid[data-trailer]'), 400);
@@ -1782,13 +1808,14 @@ async function updWatch() {   // Steam and Epic games: tell me in the notificati
       let u = null; try { u = await api.gameUpdInfo(g.id); } catch {} if (!u) continue;
       const now = u.needsUpdate ? (u.updating ? 'busy' : 'need') : 'ok', was = updKnown.get(g.id);
       updKnown.set(g.id, now);
-      if (now === 'need' && was !== 'need') note('Update needed: ' + g.title, g.id);
-      else if (now === 'ok' && (was === 'need' || was === 'busy')) note(g.title + ' is up to date. Ready to play.', g.id);
+      if (now === 'need' && was !== 'need') notify('Update available', g.title, g.id, 'drive');
+      else if (now === 'ok' && (was === 'need' || was === 'busy')) notify('Update complete', g.title + ' is ready to play.', g.id, 'play');
       await new Promise((r) => setTimeout(r, 400));
     }
   } catch {}
 }
 setTimeout(updWatch, 25000); setInterval(updWatch, 300000);
+setInterval(async () => { try { if (introOn || launching || runTitle) return; for (const [id, st] of updKnown) { if (st !== 'busy') continue; const g = games.find((x) => x.id === id); if (!g) continue; let u = null; try { u = await api.gameUpdInfo(id); } catch {} if (!u) continue; const now = u.needsUpdate ? (u.updating ? 'busy' : 'need') : 'ok'; updKnown.set(id, now); if (now === 'ok') notify('Update complete', g.title + ' is ready to play.', id, 'play'); } } catch {} }, 30000);   // v1266: a game that is downloading an update is checked every 30 s so the pop-up comes as soon as it finishes
    // keeps Update / Updating % on the game page current
 const fmtEta = (s) => (s == null ? 'working out the time left' : s < 60 ? 'less than a minute left' : s < 3600 ? Math.round(s / 60) + ' min left' : Math.floor(s / 3600) + ' h ' + Math.round((s % 3600) / 60) + ' min left');
 let instBusy = false;
@@ -1809,7 +1836,7 @@ async function instTick() {   // while a game page shows a game that is not inst
       if (info) info.textContent = r.state === 'waiting' ? 'Confirm the install in the launcher window' : (r.total ? (r.approx ? '\u2248 ' : '') + Math.floor(pct) + '%  \u00b7  ' + fmtEta(r.eta) : (r.done / 1073741824).toFixed(1) + ' GB downloaded');
       if (isNew) { glowR = null; glowKick(900); }   // the text line shifts the page up; the white outline follows the button again
     } else if (r.state === 'done') {
-      games = await api.libScan(); note(g.title + ' is installed. Ready to play.', g.id); show('game', 0);
+      games = await api.libScan(); notify('Installation complete', g.title + ' is ready to play.', g.id, 'play'); show('game', 0);
       setTimeout(() => { const pb = document.querySelector('.gxplayb'); if (pb && screen === 'game') pb.focus({ preventScroll: true }); glowR = null; glowKick(1200); }, 150);
     } else if (b.classList.contains('gxinst')) {
       b.classList.remove('gxinst'); b.dataset.gact = 'install'; b.style.removeProperty('--p'); const sp = b.querySelector('span'); if (sp) sp.textContent = 'Install'; if (info) { info.remove(); glowR = null; glowKick(900); }
@@ -1874,6 +1901,7 @@ async function getInfoAll() {
   note('Fetching descriptions and ratings (up to 25 games at a time)...');
   const r = await api.catInfoAll();
   games = r.games; show('library');
+  if (r.done) notify('Game info ready', r.done + ' games updated with descriptions.', '', 'star');
   note('Info found for ' + r.done + ' games.' + (r.more ? ' Press Get game info again for more.' : '') + (r.error ? ' Problem: ' + r.error : ''));
 }
 async function refreshLib() { const i = focusIdx(); games = await api.libGet(); show('library', i); }
@@ -2191,12 +2219,14 @@ async function getArt() {   // real box art for every game: Steam posters, then 
     note('Box art: ' + found + ' found so far (' + Math.min(k + 12, rest.length) + ' of ' + rest.length + ' checked)...');
   }
   show('library');
+  notify('Box art ready', found + ' games got cover art.', '', 'star');
   note('Box art found for ' + found + ' games.' + (found === 0 && !settings.sgdbKey && !settings.igdbId ? ' Add a SteamGridDB key in Settings > Games & library for more.' : '') + (err ? ' Problem: ' + err : '') + (missed.length ? ' Not found: ' + missed.slice(0, 6).join(', ') + (missed.length > 6 ? ' and ' + (missed.length - 6) + ' more' : '') + '.' : ''));
 }
 async function rescan() {
   note('Scanning... this can take a minute.');
   games = await api.libScan(); acct = await api.accountStatus(); if (screen === 'settings') show('settings', focusIdx()); else show('library');
   note('Found ' + games.length + ' games.' + (acct.errors.length ? ' Problem: ' + acct.errors.join('; ') : ''));
+  notify('Game library complete', games.length + ' games found.', '', 'play');
 }
 if (api.onAcctWeb) api.onAcctWeb(() => { if (typeof show === 'function') show('browser'); });   // a web sign-in (Steam, Epic) opened in the console's browser view
 async function accountAction(p) {
@@ -2221,7 +2251,7 @@ async function accountAction(p) {
   acct = await api.accountStatus(); show('settings', idx);
   if (!r || (!r.ok && !r.error)) return note('Sign-in failed.');
   if (!r.ok) return note('Sign-in failed: ' + r.error);
-  note('Signed in. Loading your library...');
+  notify('Signed in', 'Loading your library...', '', 'shield');
   await rescan();
   setTimeout(() => { try { window.__autoMedia && window.__autoMedia(); loadSquares(); } catch {} }, 6000);
 }
@@ -2462,7 +2492,12 @@ async function launch(id) {
   api.libGet().then((x) => { games = x; });
   if (!(g && g.installed !== false)) note('Opened the launcher. Finish there, then press Rescan.');
 }
-async function removeGame(id) { games = await api.libRemove(id); show(screen === 'home' ? 'home' : 'library', screen === 'game' ? 0 : focusIdx()); note('Removed from the library. Your files were not touched.'); }
+async function removeGame(id) {
+  let keep = null;   // v1266: after removing a game the list stays where it was: the same spot (or the game before it) is selected and the grid does not jump to the top
+  try { if (screen === 'library') { const lg = document.querySelector('.lgrid'), items = lg ? [...lg.querySelectorAll('[data-game]')] : [], i = items.findIndex((e) => e.dataset.game === id); if (lg && i >= 0) { const nx = items[i + 1] || items[i - 1]; keep = { top: lg.scrollTop, next: nx ? nx.dataset.game : '', idx: i }; } } } catch {}
+  games = await api.libRemove(id);
+  if (keep && screen === 'library') { show('library', focusIdx()); try { const lg = document.querySelector('.lgrid'); if (lg) { const put = () => { lg.scrollTop = keep.top; }; put(); requestAnimationFrame(put); const ne = keep.next && [...lg.querySelectorAll('[data-game]')].find((e) => e.dataset.game === keep.next); const items = [...lg.querySelectorAll('[data-game]')], tg = items[Math.min(keep.idx, items.length - 1)] || ne; if (tg) { tg.focus({ preventScroll: true }); put(); const ge = games.find((x) => x.id === tg.dataset.game); if (ge) { setHero(ge, true); updateLibPanel(ge); } glowKick(700); } } } catch {} note('Removed from the library. Your files were not touched.'); return; }
+  show(screen === 'home' ? 'home' : 'library', screen === 'game' ? 0 : focusIdx()); note('Removed from the library. Your files were not touched.'); }
 
 // THEME-START
 const THEME_COLORS = ['#2f6fed', '#d2475f', '#2fa66a', '#e0a030', '#8a5cf0', '#16a5b8', '#e06a2c', '#c23fa3'];
@@ -3919,7 +3954,7 @@ function tick() { tickBattery(); const t = new Date().toLocaleTimeString('en-US'
   window.consoleApi.onTrailersProgress((d) => {   // the progress line stays at the bottom until the whole task is finished
     if (!d) return;
     if (d.upd && d.upd.id) { const i = games.findIndex((x) => x.id === d.upd.id); if (i >= 0) games[i] = d.upd; if (lastHero && lastHero.id === d.upd.id) { heroKey = ''; try { setHero(games[i]); } catch {} } if (screen === 'game' && gameId === d.upd.id) { try { show('game', focusIdx()); } catch {} } return; }   // each trailer works the moment it has been downloaded
-    if (d.finished) { trailMsg = ''; clearInterval(trailIv); trailIv = 0; note('Trailers finished: ' + (d.ok || 0) + ' downloaded' + (d.miss ? ', ' + d.miss + ' not found' : '') + '.'); return; }
+    if (d.finished) { trailMsg = ''; clearInterval(trailIv); trailIv = 0; notify('Trailers finished', (d.ok || 0) + ' downloaded.', '', 'star'); note('Trailers finished: ' + (d.ok || 0) + ' downloaded' + (d.miss ? ', ' + d.miss + ' not found' : '') + '.'); return; }
     trailMsg = 'Downloading trailers ' + (d.done + 1 > d.total ? d.total : d.done + 1) + '/' + d.total + ': ' + d.title;
     const h = $('#hints'); clearTimeout(noteT); if (h) { h.classList.add('msg'); h.textContent = trailMsg; }
     if (!trailIv) trailIv = setInterval(() => { const h2 = $('#hints'); if (trailMsg && h2 && h2.textContent !== trailMsg) { h2.classList.add('msg'); h2.textContent = trailMsg; clearTimeout(noteT); } }, 600);

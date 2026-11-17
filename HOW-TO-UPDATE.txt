@@ -6,10 +6,16 @@ WHAT IS IN HERE (copy the folders and files into the top of your my-console repo
   guide-preload.js         -> top folder (NEW file)
   renderer\setup-guide.html -> renderer folder (NEW file)
   renderer\app.js          -> renderer folder, replaces the old one
+  renderer\style.css       -> renderer folder, replaces the old one (notification pop-up look)
   logos\primevideo.png     -> logos folder (new)
   logos\disneyplus.png     -> logos folder (new)
 
 WHAT IT CHANGES
+  - Library: removing a game keeps your place in the list (no jump to the top)
+  - Library: the right-hand panel updates in place, so it no longer flickers when you move between games
+  - Real console notification pop-ups (slide in top right with a chime, also saved in Control Center > Notifications): update available, update complete, installation complete, game library complete, game info/box art/trailers finished, signed in
+  - Games that failed to load info before get one automatic retry
+  - Setup guide Spotify step now has Premium steps and a skip option
   - Smoother PS5 intro (no dark dip around 10 seconds)
   - Keyboard Enter/Space or a mouse click gets you past the PS start screen if the PS button does not respond
   - Wallpaper music mutes while Spotify is playing in the console
@@ -22,6 +28,8 @@ WHAT IT CHANGES
   - Game name art: if Steam/Epic/GOG have no logo for a game and you set a SteamGridDB key, the logo comes from SteamGridDB
   - NEW: a Setup guide checklist window opens on the second monitor about 20 seconds after the first launch and closes itself when every box is ticked (also under Settings > Games & library > Setup guide)
   - FIX: a fresh install now asks for the name and picture (it used to skip it and show "Frankie")
+  - FIX: "Tom Clancy's" games (Ghost Recon Breakpoint and Wildlands) now match their store pages, so they get cover art, name art, and description/year/developer
+  - Launcher games that are also on Steam (Ubisoft, EA...) now get their description, year, developer and publisher from the Steam page with no key
   - Prime Video and Disney+ show their logo instead of plain text
 
 HOW TO UPLOAD ON GITHUB.COM (no GitHub Desktop needed)
