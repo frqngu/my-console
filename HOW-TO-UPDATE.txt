@@ -1,7 +1,10 @@
-CONSOLE UPDATE v1264
+CONSOLE UPDATE v1265
 
 WHAT IS IN HERE (copy the folders and files into the top of your my-console repository on GitHub):
   main.js                  -> top folder (next to package.json), replaces the old one
+  preload.js               -> top folder (next to package.json), replaces the old one
+  guide-preload.js         -> top folder (NEW file)
+  renderer\setup-guide.html -> renderer folder (NEW file)
   renderer\app.js          -> renderer folder, replaces the old one
   logos\primevideo.png     -> logos folder (new)
   logos\disneyplus.png     -> logos folder (new)
@@ -10,13 +13,21 @@ WHAT IT CHANGES
   - Smoother PS5 intro (no dark dip around 10 seconds)
   - Keyboard Enter/Space or a mouse click gets you past the PS start screen if the PS button does not respond
   - Wallpaper music mutes while Spotify is playing in the console
+  - Release Year now shows the year (it showed "Feb" before)
+  - Spotify in the Music card: play/pause, next and previous buttons, with song and artist, no Spotify sign-in needed
+  - Settings has a new "Spotify (cover art and controls)" row where you enter your Client ID and sign in
+  - Sound card: Menu sounds and Console music bars move with the stick (left/right), hold to go faster
+  - Games & library settings: the two IGDB rows are gone (not needed); the remaining key rows say what each one is for
+  - Ubisoft sign-in: the instructions are a small window on the second monitor and the Ubisoft page opens there too; the console no longer jumps back in front
+  - Game name art: if Steam/Epic/GOG have no logo for a game and you set a SteamGridDB key, the logo comes from SteamGridDB
+  - NEW: a Setup guide checklist window opens on the second monitor about 20 seconds after the first launch and closes itself when every box is ticked (also under Settings > Games & library > Setup guide)
   - Prime Video and Disney+ show their logo instead of plain text
 
 HOW TO UPLOAD ON GITHUB.COM (no GitHub Desktop needed)
   1. Extract this zip first.
   2. Open github.com/frqngu/my-console and sign in.
   3. Click Add file, then Upload files.
-  4. Open the extracted folder and drag everything inside it (main.js, renderer, logos) onto the page. Do not drag the folder named console-update-v1264 itself.
-  5. Scroll down, type "update v1264", and click Commit changes.
+  4. Open the extracted folder and drag everything inside it (main.js, preload.js, guide-preload.js, renderer, logos) onto the page. Do not drag the folder named console-update-v1265 itself.
+  5. Scroll down, type "update v1265", and click Commit changes.
   6. Click Actions, then Build Windows installer, then Run workflow.
   7. When the green tick appears, download My-Console-Setup.exe from your link and install it.

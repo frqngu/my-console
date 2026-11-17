@@ -2322,6 +2322,72 @@ async function accountGames(l) {
   return [].concat(l.owned.steam || [], l.owned.epic || [], l.owned.ubisoft || []);
 }
 ipcMain.handle('acct:status', () => ({ steam: !!getTok('steam'), ubisoft: !!getTok('ubisoft'), epic: !!getTok('epic'), errors: lastErrors }));
+// ---- v1265: the first-launch setup guide: a checklist window on the second monitor; it closes itself once every box is ticked ----
+const guideFile = () => path.join(app.getPath('userData'), 'setup-guide.json');
+function guideRead() { try { const j = JSON.parse(fs.readFileSync(guideFile(), 'utf8')); return { checked: (j && typeof j.checked === 'object' && j.checked) || {}, done: !!(j && j.done) }; } catch { return { checked: {}, done: false }; } }
+function guideWrite(o) { try { fs.writeFileSync(guideFile(), JSON.stringify(o)); } catch (e) { log('setup guide save: ' + e.message); } }
+let guideWin = null;
+ipcMain.handle('guide:get', () => guideRead());
+ipcMain.on('guide:save', (_e, checked) => { if (!checked || typeof checked !== 'object') return; const c = {}; for (const k of Object.keys(checked).slice(0, 60)) if (/^\d\.\d$/.test(k)) c[k] = !!checked[k]; guideWrite({ checked: c, done: guideRead().done }); });
+ipcMain.on('guide:done', () => { guideWrite({ checked: guideRead().checked, done: true }); log('setup guide: every step ticked'); try { if (guideWin && !guideWin.isDestroyed()) guideWin.close(); } catch {} });
+function openSetupGuide() {
+  try {
+    if (guideWin && !guideWin.isDestroyed()) { guideWin.show(); guideWin.focus(); return true; }
+    const { BrowserWindow, screen } = require('electron'), home = homeDisplay(), all = screen.getAllDisplays(), other = all.find((d) => !home || d.id !== home.id), d = other || home || screen.getPrimaryDisplay(), wa = d.workArea;
+    const W = Math.min(980, Math.round(wa.width * (other ? 0.6 : 0.42))), H = Math.round(wa.height * 0.92);
+    guideWin = new BrowserWindow({ x: Math.round(other ? wa.x + (wa.width - W) / 2 : wa.x + wa.width - W - 20), y: Math.round(wa.y + (wa.height - H) / 2), width: W, height: H, title: 'Set up your console', autoHideMenuBar: true, show: false, alwaysOnTop: !other, backgroundColor: '#12141c', webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'guide-preload.js') } });
+    const wc = guideWin.webContents;
+    wc.setWindowOpenHandler(({ url }) => { try { const u = new URL(url); if (u.protocol === 'https:' && /^(www\.)?(steamgriddb\.com|rawg\.io|steamcommunity\.com)$/.test(u.hostname)) shell.openExternal(url).catch(() => {}); } catch {} return { action: 'deny' }; });
+    wc.on('will-navigate', (e, url) => { if (!/^file:/.test(url)) { e.preventDefault(); try { const u = new URL(url); if (u.protocol === 'https:' && /^(www\.)?(steamgriddb\.com|rawg\.io|steamcommunity\.com)$/.test(u.hostname)) shell.openExternal(url).catch(() => {}); } catch {} } });
+    guideWin.once('ready-to-show', () => { try { guideWin.showInactive(); } catch {} });   // shown without taking the focus away from the console
+    guideWin.on('closed', () => { guideWin = null; });
+    guideWin.loadFile(path.join(__dirname, 'renderer', 'setup-guide.html')).catch((e) => log('setup guide: ' + e.message));
+    log('setup guide: opened on ' + (other ? 'the second monitor' : 'the only monitor'));
+    return true;
+  } catch (e) { log('setup guide: ' + e.message); return false; }
+}
+ipcMain.handle('guide:open', () => openSetupGuide());
+function guideAutoOpen() { setTimeout(() => { try { if (!guideRead().done && win && !win.isDestroyed()) openSetupGuide(); } catch {} }, 20000); }
+function ubiSecondDisplay() {   // the other monitor if there is one, otherwise the main one
+  try { const { screen } = require('electron'); const home = homeDisplay(), all = screen.getAllDisplays(); return all.find((d) => !home || d.id !== home.id) || home || screen.getPrimaryDisplay(); } catch { return null; }
+}
+function ubiOpenLogin() {   // the Ubisoft login page in Chrome, in a new window on the second monitor (falls back to the normal browser)
+  try {
+    const { screen } = require('electron'), d = ubiSecondDisplay(), c = findChrome();
+    if (d && c) {
+      let b = d.bounds; try { b = screen.dipToScreenRect(null, d.bounds); } catch {}
+      const w = Math.max(700, Math.min(1280, b.width - 120)), h = Math.max(600, Math.min(900, b.height - 120));
+      const ch = spawn(c, ['--new-window', '--window-position=' + (b.x + 60) + ',' + (b.y + 40), '--window-size=' + w + ',' + h, UBI_LOGIN], { detached: true, stdio: 'ignore' });
+      ch.on('error', () => { shell.openExternal(UBI_LOGIN).catch(() => {}); }); ch.unref(); return;
+    }
+  } catch {}
+  shell.openExternal(UBI_LOGIN).catch(() => {});
+}
+function ubiHelp() {   // the Ubisoft sign-in steps, in a small window on the second monitor; resolves true on Continue
+  return new Promise((resolve) => {
+    const { BrowserWindow, screen } = require('electron');
+    let done = false, w = null;
+    const fin = (v) => { if (done) return; done = true; dlgOpen = Math.max(0, dlgOpen - 1); try { if (w && !w.isDestroyed()) w.destroy(); } catch {} try { win.restore(); win.focus(); } catch {} resolve(v); };
+    dlgOpen++; try { win.minimize(); } catch {}   // the console steps aside; while this window is open nothing pulls it back in front
+    const d = ubiSecondDisplay(), wa = d ? d.workArea : { x: 100, y: 100, width: 1200, height: 800 }, W = 520, H = 680;
+    w = new BrowserWindow({ x: Math.round(wa.x + wa.width - W - 30), y: Math.round(wa.y + 30), width: W, height: H, title: 'Sign in to Ubisoft', autoHideMenuBar: true, alwaysOnTop: true, show: false, webPreferences: { sandbox: true, contextIsolation: true } });
+    const html = `<!doctype html><meta charset="utf-8"><title>Sign in to Ubisoft</title><style>body{margin:0;background:#14161f;color:#e9ecf4;font:15px/1.5 Segoe UI,Arial,sans-serif;padding:22px 26px}h1{font-size:20px;margin:0 0 6px}p{margin:8px 0;color:#c4c9d8}ol{padding-left:20px;margin:10px 0}li{margin:9px 0}b{color:#fff}a.btn{display:inline-block;text-decoration:none;padding:10px 20px;border-radius:9px;margin:6px 8px 0 0;font-weight:600;background:#2b2f40;color:#fff}a.go{background:#2a7fff}small{color:#98a0b6;display:block;margin-top:14px}</style>
+<h1>Sign in to Ubisoft</h1><p>Ubisoft blocks the console's own browser, so you sign in here in your normal browser, once.</p>
+<ol><li>Sign in on the Ubisoft page that just opened in Chrome. It may end on a "page cannot be found" error. That is normal.</li>
+<li>Press <b>Open Ubisoft page again</b> below. When it shows <b>Welcome back</b>, do <b>not</b> press its Continue button.</li>
+<li>On that page click your <b>Send to console</b> bookmark (the code to make it is already copied: <b>Ctrl+D</b>, name it, <b>Edit</b>, paste into the URL box, Save; after that it is under <b>All Bookmarks</b>). A box says <b>Copied</b>.</li>
+<li>Press <b>Continue</b> here.</li></ol>
+<a class="btn" href="ubi://login">Open Ubisoft page again</a><br><a class="btn go" href="ubi://continue">Continue</a><a class="btn" href="ubi://cancel">Cancel</a>
+<small>The bookmark only reads your Ubisoft sign-in on that page and puts it on your clipboard.</small>`;
+    const act = (u) => { if (!/^ubi:\/\//.test(u)) return false; const k = u.slice(6).replace(/\/$/, ''); if (k === 'login') ubiOpenLogin(); else fin(k === 'continue'); return true; };
+    w.webContents.on('will-navigate', (e, u) => { if (act(u)) e.preventDefault(); });
+    w.webContents.setWindowOpenHandler(({ url }) => { act(url); return { action: 'deny' }; });
+    w.on('closed', () => fin(false));
+    w.once('ready-to-show', () => { try { w.show(); } catch {} });
+    w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html)).catch(() => fin(false));
+    ubiOpenLogin();
+  });
+}
 ipcMain.handle('acct:login', async (_e, p) => {
   try {
     if (p === 'steam') { await steamLogin(); setTok('steam', { at: Date.now() }); }
@@ -2330,12 +2396,8 @@ ipcMain.handle('acct:login', async (_e, p) => {
       // v1078: Ubisoft's bot protection refuses the console's built-in browser, so you sign in with your normal browser (where it works) and send the result across with one bookmark
       const { clipboard } = require('electron');
       const BM = "javascript:(async()=>{try{var o={a:localStorage.getItem('PRODloginData'),b:localStorage.getItem('PRODrememberMe'),c:localStorage.getItem('PRODlastProfile')};if(!o.a&&!o.b){alert('Not signed in to Ubisoft here yet.');return}var t='MYCONSOLE-UBI:'+btoa(unescape(encodeURIComponent(JSON.stringify(o))));var x=document.createElement('textarea');x.value=t;x.style.position='fixed';x.style.opacity='0';document.body.appendChild(x);x.focus();x.select();var k=false;try{k=document.execCommand('copy')}catch(e){}x.remove();if(!k)await navigator.clipboard.writeText(t);alert('Copied '+t.length+' characters. Go back to the console and press Continue.')}catch(e){alert('Could not copy: '+e.message)}})()";
-      clipboard.writeText(BM); shell.openExternal(UBI_LOGIN).catch(() => {});
-      try { win.minimize(); } catch {}   // so your browser is in front
-      const r = await dialog.showMessageBox({ type: 'info', title: 'Sign in to Ubisoft', buttons: ['Continue', 'Cancel'], defaultId: 0, cancelId: 1, noLink: true,
-        message: 'Sign in to Ubisoft in your normal browser',
-        detail: 'Ubisoft blocks the console\'s built-in browser, so do this once:\n\n1. Sign in on the Ubisoft page that just opened in your browser. It may end on a "page cannot be found" message: that is normal, stay on it.\n2. On that page press Ctrl+D to add a bookmark, name it "Send to console", click More or Edit, delete its web address and paste (Ctrl+V). The code is already copied for you.\n3. Click that bookmark while you are on the Ubisoft page. It says "Copied".\n4. Come back here and press Continue.\n\nThe bookmark only reads your Ubisoft sign-in on that page and puts it on your clipboard.' });
-      try { win.restore(); win.focus(); } catch {}
+      clipboard.writeText(BM);
+      const r = { response: (await ubiHelp()) ? 0 : 1 };   // v1265: the instructions are a small window of their own on the second monitor (and the Ubisoft page opens there too), so you can sign in and press Continue without the console jumping back in front
       if (r.response !== 0) return { ok: false, error: 'Sign-in cancelled.' };
       let txt = ''; try { txt = String((await clipboard.readText()) || ''); } catch {}
       log('ubisoft clipboard: ' + txt.length + ' chars, starts ' + JSON.stringify(txt.slice(0, 14))); if (!/^MYCONSOLE-UBI:/.test(txt)) return { ok: false, error: 'Nothing copied yet. Sign in, click the "Send to console" bookmark on the Ubisoft page, then try again.' };
@@ -3069,7 +3131,21 @@ ipcMain.handle('yt:search', async (_e, q) => {
   } catch (e) { log('youtube search: ' + e.message); return { ok: false, error: e.message }; }
 });
 ipcMain.handle('spweb:open', () => spShow());
-ipcMain.handle('sp:state', () => { try { if (spView && spView.webContents && !spView.webContents.isDestroyed()) return { open: true, shown: !!spShown, title: spView.webContents.getTitle() || '' }; } catch {} return { open: false, title: '' }; });
+const SP_STATE_JS = `(()=>{const q=(s)=>document.querySelector(s);const pp=q('[data-testid="control-button-playpause"]');const t=q('[data-testid="context-item-info-title"]'),a=q('[data-testid="context-item-info-artist"]');return JSON.stringify({playing:!!pp&&/pause/i.test(pp.getAttribute('aria-label')||''),song:t?t.textContent:'',artist:a?a.textContent:''})})()`;
+ipcMain.handle('sp:state', async () => {   // v1265: also reads play state, song and artist from the web player page (works without the Spotify account sign-in)
+  try {
+    if (spView && spView.webContents && !spView.webContents.isDestroyed()) {
+      const o = { open: true, shown: !!spShown, title: spView.webContents.getTitle() || '' };
+      try { const r = JSON.parse(await Promise.race([spView.webContents.executeJavaScript(SP_STATE_JS), new Promise((_, rj) => setTimeout(() => rj(new Error('t')), 1500))])); o.playing = !!r.playing; o.song = String(r.song || '').slice(0, 160); o.artist = String(r.artist || '').slice(0, 160); } catch {}
+      return o;
+    }
+  } catch {}
+  return { open: false, title: '' };
+});
+ipcMain.handle('sp:webcmd', async (_e, k) => {   // play/pause, next, previous: presses the web player's own buttons
+  const id = { pp: 'control-button-playpause', next: 'control-button-skip-forward', prev: 'control-button-skip-back' }[k]; if (!id) return false;
+  try { if (!spView || spView.webContents.isDestroyed()) return false; return !!(await spView.webContents.executeJavaScript(`(()=>{const b=document.querySelector('[data-testid="${id}"]');if(b){b.click();return true}return false})()`)); } catch (e) { log('spotify web control: ' + e.message); return false; }
+});
 ipcMain.handle('sp:native', () => fs.existsSync(path.join(app.getPath('userData'), 'spotify-native.txt')));   // an empty file with this name brings the console's own Spotify screen back
 ipcMain.handle('spweb:hide', () => { spHide(); return true; });
 ipcMain.handle('discord:open', () => dcShow());
@@ -3477,6 +3553,30 @@ ipcMain.handle('steam:appid', async (_e, title) => {   // the Steam page of a ga
   return id || '';
 });
 
+// ---- SteamGridDB logos (needs the SteamGridDB key): the name art for any game the Steam/Epic/GOG logos did not cover ----
+const sgdbLogoCache = new Map();
+ipcMain.handle('logo:sgdb', async (_e, title) => {
+  const key = loadSettings().sgdbKey, t = String(title || '').slice(0, 120); if (!key || !t) return '';
+  if (sgdbLogoCache.has(t)) return sgdbLogoCache.get(t);
+  const num = String(parseInt(require('crypto').createHash('sha1').update('sgdb:' + norm(coverTitle(t))).digest('hex').slice(0, 8), 16)), id = '8' + num, ln = 'wl-' + id + '.png', lf = path.join(themeDir(), ln);
+  let out = '';
+  try {
+    if (fs.existsSync(lf)) out = makeTrimmedLogo(id, ln);
+    else {
+      const H = { Authorization: 'Bearer ' + key }, ct = coverTitle(t) || t;
+      const sr = await fetch('https://www.steamgriddb.com/api/v2/search/autocomplete/' + encodeURIComponent(ct), { headers: H, signal: AbortSignal.timeout(15000) });
+      const list = sr.ok ? ((await sr.json()).data || []) : [];
+      const hit = list.find((x) => norm(x.name) === norm(ct)) || list.find((x) => normName(x.name) === normName(ct)) || list.find((x) => normName(x.name).replace(/^tom clancys? /, '') === normName(ct).replace(/^tom clancys? /, ''));
+      if (hit && hit.id) {
+        const gr = await fetch('https://www.steamgriddb.com/api/v2/logos/game/' + hit.id + '?types=static&mimes=image/png&nsfw=false&humor=false', { headers: H, signal: AbortSignal.timeout(15000) });
+        const g = gr.ok ? ((await gr.json()).data || []).filter((x) => x && /^https:\/\/cdn2?\.steamgriddb\.com\//.test(x.url || ''))[0] : null;
+        if (g) { const ir = await fetch(g.url, { signal: AbortSignal.timeout(20000) }), b = Buffer.from(await ir.arrayBuffer()); if (ir.ok && b.length > 800 && b[0] === 0x89 && b[1] === 0x50) { fs.writeFileSync(lf, b); out = makeTrimmedLogo(id, ln); log('steamgriddb logo saved for ' + t); } }
+        else log('steamgriddb logo: none for ' + t);
+      } else log('steamgriddb logo: no match for ' + t);
+    }
+  } catch (e) { log('steamgriddb logo ' + t + ': ' + e.message); }
+  sgdbLogoCache.set(t, out); return out;
+});
 // ---- Epic Games: the store's own transparent logo ("ProductLogo") for a game, found by its title ----
 const epicLogoCache = new Map();
 ipcMain.handle('logo:epic', async (_e, arg) => {
@@ -4570,7 +4670,7 @@ app.whenReady().then(() => {
   log('start');
   // the Widevine build of Electron (see install-widevine.bat) downloads Google's copy-protection module once; Spotify needs it to play sound inside the console
   seedIntroVideos();   // the Xbox and PS5 startup videos that come with the console (once per version; your own picks later still work)
-  const go = () => { createWindow(); startHelper(); lsStart(); };
+  const go = () => { createWindow(); startHelper(); lsStart(); guideAutoOpen(); };
   try {
     const { components } = require('electron');
     if (components && components.whenReady) { Promise.race([components.whenReady(), new Promise((r) => setTimeout(r, 20000))]).then(() => { try { log('widevine: ' + JSON.stringify(components.status())); } catch { log('widevine ready'); } }, (e) => log('widevine: ' + (e && e.message))).finally(go); return; }
@@ -4914,7 +5014,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1264';
+const VERSION = 'v1265';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 

@@ -540,8 +540,8 @@ let themeOpen = false;
 function setTiles(c) {
   if (c === 'general') return stT('home', 'Home style', 'data-act="homestyle"', settings.homeStyle === 'classic' ? 'Classic (2020)' : 'New (2026)') + stT('apps', 'Customize your Home', 'data-go="widgets"') + stT('apps', 'Wallpaper &amp; theme', 'data-act="theme"', window.themeName ? themeName(settings.theme || 'winter') : 'Winter') + (themeOpen ? `<div class="th-dd">${(window.THEMES || []).map((t) => `<button class="th-o${t.id === (settings.theme || 'winter') ? ' on' : ''}" data-nav data-act="settheme" data-id="${t.id}"><img src="backdrops/thumb/${t.id}.jpg" alt="" draggable="false"><span>${esc(t.name)}</span></button>`).join('')}</div>` : '') + stT('library', 'Full screen', 'data-act="fullscreen"');
   if (c === 'account') return stT('pad', 'Name', 'data-act="pname"', esc(profileName())) + stT('star', 'Profile picture', 'data-act="pavatar"', settings.avatarFile ? 'Change' : 'Choose')
-    + (settings.avatarFile ? stT('shield', 'Remove picture', 'data-act="pavatarrm"') : '') + stT('library', 'Steam', 'data-act="acct" data-p="steam"', acct.steam ? 'Signed in' : 'Sign in') + stT('library', 'Ubisoft Connect', 'data-act="acct" data-p="ubisoft"', acct.ubisoft ? 'Signed in' : 'Sign in') + stT('library', 'Epic Games', 'data-act="acct" data-p="epic"', acct.epic ? 'Signed in' : 'Sign in');
-  if (c === 'library') return stT('down', 'Rescan games', 'data-act="scan"') + stT('drive', 'Storage', 'data-tool="storage"', 'Game sizes and drives') + stT('drive', 'Steam API key', 'data-act="steamkey"', settings.steamKey ? 'Set' : 'Not set') + stT('library', 'SteamGridDB key (box art)', 'data-act="sgdbkey"', settings.sgdbKey ? 'Set' : 'Not set') + stT('search', 'RAWG key', 'data-act="rawgkey"', settings.rawgKey ? 'Set' : 'Not set') + stT('library', 'IGDB client ID', 'data-act="igdbid"', settings.igdbId ? 'Set' : 'Not set') + stT('library', 'IGDB client secret', 'data-act="igdbsecret"', settings.igdbSecret ? 'Set' : 'Not set');
+    + (settings.avatarFile ? stT('shield', 'Remove picture', 'data-act="pavatarrm"') : '') + stT('library', 'Steam', 'data-act="acct" data-p="steam"', acct.steam ? 'Signed in' : 'Sign in') + stT('library', 'Ubisoft Connect', 'data-act="acct" data-p="ubisoft"', acct.ubisoft ? 'Signed in' : 'Sign in') + stT('library', 'Epic Games', 'data-act="acct" data-p="epic"', acct.epic ? 'Signed in' : 'Sign in') + stT('library', 'Spotify (cover art and controls)', 'data-act="spotifysetup"', 'Set up');
+  if (c === 'library') return stT('down', 'Rescan games', 'data-act="scan"') + stT('drive', 'Storage', 'data-tool="storage"', 'Game sizes and drives') + stT('drive', 'Steam API key (achievements and friends)', 'data-act="steamkey"', settings.steamKey ? 'Set' : 'Not set') + stT('library', 'SteamGridDB key (game cover art)', 'data-act="sgdbkey"', settings.sgdbKey ? 'Set' : 'Not set') + stT('search', 'RAWG key (descriptions, year, developer)', 'data-act="rawgkey"', settings.rawgKey ? 'Set' : 'Not set') + stT('library', 'Setup guide (opens on the second monitor)', 'data-act="setupguide"', 'Open');
   if (c === 'system') return stT('info', 'System info', 'data-act="sysinfo"') + stT('down', 'Updates', 'data-tool="upd"', 'Windows and console') + stT('gear', 'Backup & restore', 'data-tool="care"', 'Backup, restore, reset') + stT('power', 'Exit', 'data-act="quit"');
   if (c === 'devices') return stT('pad', 'Controller', 'data-go="controller"') + stS('sliders', 'deadzone') + stS('mouse', 'mouseSpeed') + stS('mouse', 'mouseCurve') + stT('net', 'Network', 'data-tool="wifi"', 'Wi-Fi and speed test') + stT('bt', 'Devices & screens', 'data-tool="dev"', 'Bluetooth and screen modes') + stT('gear', 'Display & sound', 'data-tool="win"', 'Sound, display, power mode');
   if (c === 'audio') return stOnOff('play', 'Music', 'music', 'music') + stS('play', 'musicVol') + stOnOff('play', 'Sounds', 'sfx', 'sfx') + stS('play', 'sfxVol');
@@ -709,7 +709,7 @@ function assignBind(mode, act, name) {
 let spLive = { open: false, title: '' };
 let spTitlePlaying = false;   // v1264: Spotify is playing in the console's own player (its title shows the song), even when the Spotify account is not signed in for the controls
 function spTitleOf(s) { if (!s || !s.open) return ''; const t = String(s.title || '').replace(/\s*[\u2022\-\u2013|]\s*Spotify\s*$/i, '').trim(); return (t && !/^spotify(\s*[\u2013\-]\s*web player.*)?$/i.test(t) && !/web player/i.test(t)) ? t : ''; }
-setInterval(() => { try { window.consoleApi.spState().then((s) => { if (s) { spLive = s; try { spTitlePlaying = !!spTitleOf(s); if (!homeNp.on) SND.spot(spTitlePlaying); } catch {} } }).catch(() => {}); } catch {} }, 3000);
+setInterval(() => { try { window.consoleApi.spState().then((s) => { if (s) { spLive = s; try { spTitlePlaying = typeof s.playing === 'boolean' ? s.playing : !!spTitleOf(s); if (!homeNp.on) SND.spot(spTitlePlaying); } catch {} } }).catch(() => {}); } catch {} }, 3000);
 function spPlayingNow() {
   let title = '';
   if (spLive.open) { const t = String(spLive.title || '').replace(/\s*[\u2022\-\u2013|]\s*Spotify\s*$/i, '').trim(); if (t && !/^spotify(\s*[\u2013\-]\s*web player.*)?$/i.test(t) && !/web player/i.test(t)) title = t; }
@@ -721,6 +721,11 @@ function spPlayingNow() {
     const rec = (homeNp.recent || []).map((r) => `<button class="gd-rc" data-nav data-gd="npplay:${esc(r.uri)}"><i class="gd-rci" data-gimg="${esc(r.img)}"></i><span><b>${esc(r.name)}</b><small>${esc(r.sub)}</small></span></button>`).join('');
     setTimeout(() => document.querySelectorAll('[data-gimg]').forEach((e) => { const u = e.dataset.gimg; if (/^https:\/\/[a-z0-9.-]*(scdn\.co|spotifycdn\.com)\//i.test(u)) e.style.backgroundImage = `url("${u}")`; }), 0);
     return `<div class="gd-pl">Spotify</div><div class="gd-np"><div class="gd-npi"><i class="gd-npc" id="gnpc"></i><span class="gd-npt"><b id="gnpb">${esc(homeNp.title)}</b><small id="gnps">${esc(homeNp.artist)}</small></span></div><div class="gd-npr">${gb('prev', 'prev')}${gb('rep', 'repeat', homeNp.rep !== 'off')}${gb('pp', homeNp.playing ? 'pause' : 'play', false, true)}${gb('shuf', 'shuffle', homeNp.shuf)}${gb('next', 'next')}</div><div class="gd-npbar"><i id="gnbar"></i></div><div class="gd-npts"><span id="gnt0">0:00</span><span id="gnt1">0:00</span></div><button class="gd-vol" id="gvol" data-nav data-gd="vol"><span>Volume</span><span class="gd-vb"><i id="gvbar" style="width:${Math.max(0, homeNp.vol)}%"></i></span><b id="gvn">${homeNp.vol >= 0 ? homeNp.vol : '\u2013'}</b></button></div>${gdI('', 'Launch Spotify', 'data-gd="spresume"')}${rec ? `<div class="gd-pl">Recently played</div>${rec ? psSec('Recently played') + rec : ''}` : ''}<div class="gd-sep"></div>`;
+  }
+  const sg = (spLive.song || '').trim(), ar = (spLive.artist || '').trim();
+  if (spLive.open && sg) {   // v1265: transport buttons that press the web player's own controls, no Spotify account sign-in needed
+    const wb = (k, ic, big) => `<button class="gd-nb${big ? ' big' : ''}" data-nav data-gd="spw:${k}" id="gspw-${k}">${SPI[ic]}</button>`;
+    return `<div class="gd-pl">Spotify</div><div class="gd-np"><div class="gd-npi"><span class="gd-npt"><b>${esc(sg)}</b><small>${esc(ar)}</small></span></div><div class="gd-npr">${wb('prev', 'prev')}${wb('pp', spLive.playing ? 'pause' : 'play', true)}${wb('next', 'next')}</div></div>${gdI('play', 'Open Spotify', 'data-gd="spresume"')}<div class="gd-sep"></div>`;
   }
   return `<div class="gd-pl">Spotify</div>${title ? `<p class="gd-t">\u266a ${esc(title)}</p>` : '<p class="gd-t">Open in the background</p>'}${gdI('play', 'Resume Spotify', 'data-gd="spresume"')}<div class="gd-sep"></div>`;
 }
@@ -877,7 +882,7 @@ const PSICO = {
 const pci = (n) => PSICO[n] || ICON[n] || '';
 const psSec = (t) => `<div class="pc-sec">${t}</div>`;
 const psI = (ic, title, sub, act, tone, cls) => `<button class="gd-i pc pc-act t-${tone || 'blue'}${cls ? ' ' + cls : ''}" data-nav data-gd="${act}"><span class="pc-ic">${pci(ic)}</span><span class="pc-wm">${pci(ic)}</span><span class="pc-tx"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
-const psV = (ic, title, pct, act, tone) => `<button class="gd-i pc pc-stat t-${tone || 'blue'}" data-nav data-gd="${act}"><span class="pc-ic">${ICON[ic] || ''}</span><em class="pc-num">${pct}<i>%</i></em><span class="pc-tx"><b>${title}</b><small>Press to raise, wraps at the top</small></span><span class="pc-bar" data-pct="${pct}"><i></i></span></button>`;
+const psV = (ic, title, pct, act, tone) => `<button class="gd-i pc pc-stat t-${tone || 'blue'}" data-nav data-gd="${act}"><span class="pc-ic">${ICON[ic] || ''}</span><em class="pc-num">${pct}<i>%</i></em><span class="pc-tx"><b>${title}</b><small>Left / right to change</small></span><span class="pc-bar" data-pct="${pct}"><i></i></span></button>`;
 const psGame = (g, tag, act, tone) => `<button class="gd-i pc pc-game t-${tone || 'blue'}" data-nav data-gd="${act}"><i class="th${gImg(g) ? '' : ' noart'}" data-img="${esc(sqMap.has(g.id) ? 'ctheme://img/' + sqMap.get(g.id) : gImg(g))}"${gImg(g) ? '' : ` data-hue="${hue(g.title)}"`}></i><span class="pc-tx"><b>${esc(g.title)}</b>${tag ? `<small>${esc(tag)}</small>` : ''}</span></button>`;
 const psEmpty = (t) => `<div class="pc pc-empty"><span class="pc-tx"><b>${t}</b></span></div>`;
 const psSw = (ic, label, on, act) => `<button class="gd-i pc pc-act pc-row" data-nav data-gd="${act}"><span class="pc-ic">${pci(ic)}</span><span class="pc-wm">${pci(ic)}</span><span class="pc-tx"><b>${label}</b></span><span class="pc-sw${on ? ' on' : ''}"><i></i></span></button>`;
@@ -1065,6 +1070,7 @@ function guideTabStep(dir) {
   const first = document.querySelector('#guide .gd-body [data-nav]'); if (first && !psOn()) first.focus({ preventScroll: true });
 }
 async function guideAct(a) {
+  if (a.startsWith('spw:')) { const k = a.slice(4); return api.spWebCmd(k).then(() => setTimeout(() => { try { api.spState().then((st) => { if (st) { spLive = st; const b = document.getElementById('gspw-pp'); if (b && typeof st.playing === 'boolean') b.innerHTML = SPI[st.playing ? 'pause' : 'play']; } }); } catch {} }, 500)); }
   if (a.startsWith('npc:')) return npAct(a.slice(4));
   if (a.startsWith('npplay:')) { await spPlay({ uris: [a.slice(7)] }); setTimeout(npPoll, 900); return; }
   if (a.startsWith('vol:')) { const k = a.slice(4); const cur = Math.round((settings[k] ?? (k === 'sfxVol' ? 0.7 : 0.3)) * 10); setLocal({ [k]: ((cur + 1) % 11) / 10 }); SND.play('select'); return renderGuide(undefined, true); }
@@ -1211,7 +1217,7 @@ function lpanelHtml(g) {
   const status = g.installed === false ? 'Not installed' : g.playSeconds || g.lastPlayed ? 'Played' : 'Not Played';
   return `<div class="lpv"><div class="lpart xart lpbg" data-img="${esc(gImg(g))}"></div><div class="lpart xart lpfg" data-img="${esc(gImg(g))}"></div>${hasT ? `<video class="lvid" data-trailer="${esc(g.trailer)}"${trAttrs(g)} loop playsinline></video>` : ''}</div>
     <div class="lbox">${box('Time Played', g.playSeconds ? fmtDur(g.playSeconds) : 'Not Played')}${box('Last Played', g.lastPlayed ? new Date(g.lastPlayed).toLocaleDateString() : 'Never')}${box('Completion Status', status)}
-      ${box('Release Year', g.released ? String(g.released).slice(0, 4) : '')}${box('Developer', list(g.developers))}${box('Publisher', list(g.publishers))}</div>
+      ${box('Release Year', (String(g.released || '').match(/(19|20)\d\d/) || [''])[0])}${box('Developer', list(g.developers))}${box('Publisher', list(g.publishers))}</div>
     <div class="lrate">${g.metacritic ? `<span class="mcb">${g.metacritic}</span>` : ''}${stars}<span class="lsrc">${esc(g.source || '')}</span></div>
     <div class="ldesc">${g.description ? String(g.description).split(/\n+/).filter(Boolean).slice(0, 2).map((t) => `<p>${esc(t)}</p>`).join('') : ''}</div>
     <div class="lgen">${(g.genres || []).slice(0, 4).map((x) => `<em>${esc(x)}</em>`).join('')}</div>
@@ -1662,7 +1668,7 @@ SCREENS.game = {
     const g = games.find((x) => x.id === gameId);
     if (!g) return '<h1>Game not found</h1><div class="list"><button class="item" data-nav data-go="library"><span>Back to library</span><span></span></button></div>';
     const inst = g.installed !== false, list = (a) => (Array.isArray(a) ? a.filter(Boolean) : []);
-    const year = g.released ? String(g.released).slice(0, 4) : '', dev = list(g.developers)[0] || '';
+    const year = (String(g.released || '').match(/(19|20)\d\d/) || [''])[0], dev = list(g.developers)[0] || '';
     const stars = g.rating ? `<span class="stars"><span class="sb">\u2605\u2605\u2605\u2605\u2605</span><span class="sf" data-w="${Math.max(0, Math.min(100, Math.round(g.rating / 5 * 100)))}">\u2605\u2605\u2605\u2605\u2605</span></span>` : '';
     const stat = (k, v) => `<div><small>${k}</small><b>${esc(v)}</b></div>`;
     const paras = (g.description ? String(g.description).split(/\n+/) : [settings.rawgKey ? 'No description yet. Open the ... menu and choose Get game info.' : 'Add your free RAWG key in Settings to fill in the description, rating and cover art.']).map((p) => `<p>${esc(p)}</p>`).join('');
@@ -1679,7 +1685,7 @@ SCREENS.game = {
       stat('Last played', g.lastPlayed ? new Date(g.lastPlayed).toLocaleDateString() : 'Never'),
       stat2('Status', status, `<span class="gxdot ${status === 'Played' ? 'on' : status === 'Not installed' ? 'off' : ''}"></span>`),
       stat('Platform', g.source || 'PC'),
-      stat('Released', g.released ? new Date(g.released).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'Unknown'),
+      stat('Released', (g.released ? (isNaN(new Date(g.released)) ? String(g.released) : new Date(g.released).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })) : 'Unknown')),
       ach ? stat2('Achievements', ach.got + ' / ' + ach.total, `<span class="gxbar"><i data-w="${ach.total ? Math.round(ach.got / ach.total * 100) : 0}"></i></span>`) : g.metacritic ? stat2('Critic score', g.metacritic + ' / 100', `<span class="gxbar"><i data-w="${Math.min(100, g.metacritic)}"></i></span>`) : stat('Publisher', list(g.publishers)[0] || dev || 'Unknown'),
     ].join('');
     const chips = `${g.metacritic ? `<span class="gv-mc">${g.metacritic}</span>` : ''}${stars}${list(g.genres).slice(0, 3).map((x) => `<em>${esc(x)}</em>`).join('')}`;
@@ -2135,7 +2141,7 @@ async function padSearch() {
 
 SCREENS.catalog = {
   hints: 'A: Add    B: Back',
-  html: () => `<h1>${esc(catQuery)}</h1><div class="grid">${catResults.map((g, i) => `<button class="tile game" data-nav data-res="${i}" data-img="${esc(g.image || '')}">${esc(g.title)}<small>${esc(g.released.slice(0, 4))} ${esc(g.genres.join(', '))}</small></button>`).join('')}</div>
+  html: () => `<h1>${esc(catQuery)}</h1><div class="grid">${catResults.map((g, i) => `<button class="tile game" data-nav data-res="${i}" data-img="${esc(g.image || '')}">${esc(g.title)}<small>${esc((String(g.released || '').match(/(19|20)\d\d/) || [''])[0])} ${esc(g.genres.join(', '))}</small></button>`).join('')}</div>
     <div class="row bar"><button class="item" data-nav data-act="find"><span>Search again</span><span></span></button><button class="item" data-nav data-go="library"><span>Back to library</span><span></span></button></div>`,
 };
 SCREENS.platform = {
@@ -2185,7 +2191,7 @@ async function getArt() {   // real box art for every game: Steam posters, then 
     note('Box art: ' + found + ' found so far (' + Math.min(k + 12, rest.length) + ' of ' + rest.length + ' checked)...');
   }
   show('library');
-  note('Box art found for ' + found + ' games.' + (found === 0 && !settings.sgdbKey && !settings.igdbId ? ' Add a SteamGridDB key or IGDB login in Settings > System for more.' : '') + (err ? ' Problem: ' + err : '') + (missed.length ? ' Not found: ' + missed.slice(0, 6).join(', ') + (missed.length > 6 ? ' and ' + (missed.length - 6) + ' more' : '') + '.' : ''));
+  note('Box art found for ' + found + ' games.' + (found === 0 && !settings.sgdbKey && !settings.igdbId ? ' Add a SteamGridDB key in Settings > Games & library for more.' : '') + (err ? ' Problem: ' + err : '') + (missed.length ? ' Not found: ' + missed.slice(0, 6).join(', ') + (missed.length > 6 ? ' and ' + (missed.length - 6) + ' more' : '') + '.' : ''));
 }
 async function rescan() {
   note('Scanning... this can take a minute.');
@@ -2479,9 +2485,10 @@ function fetchLogoFor(g) {   // games without a Steam logo: the Epic launcher's 
   const viaEpic = () => (api.epicLogo ? api.epicLogo({ title: g.title, uri: g.uri || '' }).then((l) => (ok(l) ? l : null)) : Promise.resolve(null));
   const viaSteam = () => (api.steamAppId ? api.steamAppId(g.title).then((sid) => (sid ? api.heroes([String(sid)]).then((r) => (r && r[sid + 'l']) || null) : null)) : Promise.resolve(null));
   const epic = /epic/i.test(g.source || '') || /epicgames/i.test(g.uri || '');
+  const viaSgdb = () => (api.sgdbLogo ? api.sgdbLogo(g.title).then((l) => (ok(l) ? l : null)).catch(() => null) : Promise.resolve(null));   // v1265: SteamGridDB's logo (needs the SteamGridDB key) for what is still missing
   const own = () => (api.bundledLogo ? api.bundledLogo(g.title).then((l) => (ok(l) ? l : null)) : Promise.resolve(null));
   const viaGog = () => (/^gog\d+$/.test(String(g.id)) && api.gogLogo ? api.gogLogo(String(g.id).slice(3)).then((l) => (ok(l) ? l : null)).catch(() => null) : Promise.resolve(null));   // v973: GOG games are matched by their GOG id
-  own().then((l) => (ok(l) ? l : viaGog())).then((l) => (ok(l) ? l : (epic ? viaEpic() : viaSteam()))).then((l) => (ok(l) ? l : (epic ? viaSteam() : viaEpic()))).then((l) => { if (ok(l)) set(l); }).catch(() => {});
+  own().then((l) => (ok(l) ? l : viaGog())).then((l) => (ok(l) ? l : (epic ? viaEpic() : viaSteam()))).then((l) => (ok(l) ? l : (epic ? viaSteam() : viaEpic()))).then((l) => (ok(l) ? l : viaSgdb())).then((l) => { if (ok(l)) set(l); }).catch(() => {});
 }
 const ownAsked = new Set(), ownSet = new Set();
 function applyOwnLogo(g) {   // logos that ship with the console beat whatever a store offers
@@ -2977,6 +2984,8 @@ function activate(el) {
   else if (el.dataset.res !== undefined) { pending = { kind: 'one', entry: catResults[Number(el.dataset.res)] }; show('platform'); }
   else if (el.dataset.plat) choosePlatform(el.dataset.plat);
   else if (el.dataset.act === 'acct') accountAction(el.dataset.p);
+  else if (el.dataset.act === 'setupguide') { try { api.guideOpen(); } catch {} note('The setup guide is on your second monitor.'); }
+  else if (el.dataset.act === 'spotifysetup') { sp.view = 'home'; sp.hist = []; show('spotify'); }
   else if (el.dataset.act === 'steamkey') openOsk('Steam API key (32 characters)', '').then((t) => { if (t !== null) change({ steamKey: t.trim() }); });
   else if (el.dataset.act === 'theme') { themeOpen = !themeOpen; paneRefresh(); if (themeOpen) { const o = document.querySelector('.th-o.on') || document.querySelector('.th-o'); if (o) o.focus({ preventScroll: false }); } }
   else if (el.dataset.act === 'settheme') { themeOpen = false; settings = { ...settings, theme: el.dataset.id }; paneRefresh(); window.consoleApi.setSettings(settings).then((s) => { settings = s; applySettings(); }); }
@@ -3153,9 +3162,23 @@ function tab(dir) {
   }
   if (screen === 'binds') { const i = BIND_TABS.findIndex((t) => t[0] === bindTabK); bindTabK = BIND_TABS[(i + dir + BIND_TABS.length) % BIND_TABS.length][0]; show('binds'); const f = document.querySelector('[data-nav]'); if (f) f.focus({ preventScroll: true }); }
 }
+let gvLast = 0, gvStart = 0, gvDir = 0;
+function guideVolStep(el, d) {   // v1265: left/right on a Sound slider changes it in small steps; held, it speeds up (same feel as the Spotify volume)
+  const k = String(el.dataset.gd || '').slice(4), def = k === 'sfxVol' ? 0.7 : 0.3;
+  const t = performance.now(); if (t - gvLast > 400 || Math.sign(d) !== gvDir) gvStart = t; gvLast = t; gvDir = Math.sign(d);
+  const step = gvDir * (1 + Math.floor((t - gvStart) / 450));
+  const pct = Math.max(0, Math.min(100, Math.round((settings[k] ?? def) * 100) + step));
+  Object.assign(settings, { [k]: pct / 100 }); try { applySettings(); } catch {}
+  clearTimeout(saveT); const n = ++saveN; saveT = setTimeout(async () => { const r = await api.setSettings(settings); if (n === saveN) settings = r; }, 300);
+  const num = el.querySelector('.pc-num'); if (num) num.innerHTML = pct + '<i>%</i>';
+  const bar = el.querySelector('.pc-bar'); if (bar) { bar.dataset.pct = pct; bar.style.setProperty('--psv', pct + '%'); }
+  const lab = el.querySelector('.gd-lb, b, span:last-child'); if (!num && lab && /\d+%/.test(lab.textContent)) lab.textContent = lab.textContent.replace(/\d+%/, pct + '%');
+  if (k === 'sfxVol' && t - gvStart < 40) SND.play('select');
+}
 function move(dir) {
   if (signPressWait) return;   // the start screen waits for the PS button: nothing moves behind it
   if (guideOn && (dir === 'left' || dir === 'right') && document.activeElement && document.activeElement.id === 'gvol') return npVol(dir === 'right' ? 1 : -1);
+  if (guideOn && (dir === 'left' || dir === 'right') && document.activeElement && /^vol:(sfxVol|musicVol)$/.test(String((document.activeElement.dataset || {}).gd || ''))) return guideVolStep(document.activeElement, dir === 'right' ? 1 : -1);
   if (guideOn && !osk && !menu && document.body.classList.contains('gd-ps')) {   // the Control Center: on the icon bar left/right change icon and up goes to the cards; on the cards left/right move between them and down returns to the bar
     if (psCust) { if (dir === 'left' || dir === 'right') { if (psGrab) psMoveTab(dir === 'right' ? 1 : -1); else { SND.play('tab'); guideTabStep(dir === 'right' ? 1 : -1); } } else if (dir === 'up') psToggleHide(); return; }
     if (!gdRow) { if (dir === 'left' || dir === 'right') { SND.play('tab'); return guideTabStep(dir === 'right' ? 1 : -1); } return; }
