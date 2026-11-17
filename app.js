@@ -3041,6 +3041,7 @@ function glideTo(c, tx, ty, tau = 120) {   // one smooth glide per scroll box, d
   let st = glMap.get(c); if (!st) { st = { raf: 0 }; glMap.set(c, st); }
   if (tx != null) st.tx = Math.max(0, Math.min(c.scrollWidth - c.clientWidth, tx));
   if (ty != null) st.ty = Math.max(0, Math.min(c.scrollHeight - c.clientHeight, ty));
+  if (!st.raf && ty != null && tx == null && Math.abs(c.scrollTop - st.ty) < 1) return;   // v1266: already at that spot (top or bottom edge): nothing moves, so nothing is switched into 'scrolling' mode
   st.tau = tau; if (ty != null) scrollBusy(); if (st.raf) return;
   st.px = c.scrollLeft; st.py = c.scrollTop; st.vx = 0; st.vy = 0;
   let last = performance.now();
