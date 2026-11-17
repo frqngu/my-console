@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Set up your console</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#12141c;color:#e9ecf4;font:17px/1.6 "Segoe UI",Arial,sans-serif}
+header{position:sticky;top:0;z-index:5;background:#171a25;border-bottom:1px solid #2a2f42;padding:14px 28px}
+header h1{margin:0 0 8px;font-size:22px}
+.bar{height:12px;background:#2a2f42;border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:#3b8cff;transition:width .3s}
+.cnt{margin-top:6px;color:#aab1c6;font-size:15px}
+main{max-width:900px;margin:0 auto;padding:10px 28px 80px}
+h2{margin:36px 0 6px;font-size:21px;color:#fff;border-bottom:2px solid #2a2f42;padding-bottom:6px}
+.rules{background:#1b1f2d;border-radius:12px;padding:6px 20px;margin-top:18px}
+.step{display:flex;gap:16px;background:#1b1f2d;border-radius:12px;padding:16px 20px;margin:14px 0;border:2px solid transparent}
+.step.ok{border-color:#2f8f5b;background:#18261f}
+.step input{flex:0 0 28px;width:28px;height:28px;margin-top:4px;accent-color:#2fbf71;cursor:pointer}
+.body{flex:1;min-width:0}
+.body h3{margin:0 0 6px;font-size:18px}
+ol{margin:6px 0;padding-left:22px}li{margin:6px 0}
+.ok-line{color:#7be0a8}.no{color:#f2b36b;margin-top:8px}
+b{color:#fff}a{color:#7db7ff}
+textarea{width:100%;height:120px;background:#0d0f16;color:#cfe3ff;border:1px solid #39405a;border-radius:8px;padding:10px;font:13px Consolas,monospace}
+button{background:#2a7fff;color:#fff;border:0;border-radius:9px;padding:9px 18px;font:600 15px "Segoe UI",Arial;cursor:pointer;margin:6px 0}
+.done{display:none;background:#18261f;border:2px solid #2f8f5b;border-radius:12px;padding:16px 20px;margin:18px 0;font-size:19px}
+code{background:#0d0f16;padding:1px 6px;border-radius:5px}
+</style></head><body>
+<header><h1>Set up your console</h1><div class="bar"><i id="fill"></i></div><div class="cnt" id="cnt"></div></header>
+<main>
+<div class="rules">
+<ul>
+<li>Do the steps <b>in order</b>. Don't skip ahead.</li>
+<li>Tick the box next to each step when it is done. <b>Every box must be ticked</b>: when they all are, this window closes by itself.</li>
+<li>If you get stuck, find the step number and read the red-orange "If it doesn't work" line under it.</li>
+<li>On your PlayStation-style controller, <b>&#10005; means "select"</b> and <b>&#9675; means "go back"</b>.</li>
+<li>You will need: your store logins (Steam, Epic, Ubisoft), your phone (stores sometimes text you a code), and a keyboard and mouse for the websites.</li>
+</ul></div>
+<div class="done" id="done">All done! This window will close in a moment. You can open it again any time from Settings &rarr; Games &amp; library &rarr; Setup guide.</div>
+
+<h2>PART 1: THE CONTROLLER</h2>
+<section class="step" data-id="1.1"><input type="checkbox"><div class="body"><h3>1.1 Connect it</h3><ol><li>Plug the small end of the USB cable into the controller.</li><li>Plug the big end into the PC.</li><li>Wait 10 seconds.</li></ol></div></section>
+<section class="step" data-id="1.2"><input type="checkbox"><div class="body"><h3>1.2 Test it</h3><ol><li>Look at the console screen.</li><li>Push the <b>left stick</b> left, then right.</li><li class="ok-line">&#9989; The highlight should move. If it does, go to Part 2.</li></ol><div class="no"><i>If it doesn't work:</i> unplug it, wait 10 seconds and plug it back in. Try a different USB port on the back of the PC. Still nothing: stop and tell Frankie.</div></div></section>
+
+<h2>PART 2: THE WELCOME SCREEN AND YOUR PROFILE</h2>
+<section class="step" data-id="2.1"><input type="checkbox"><div class="body"><h3>2.1 Get past the first screen</h3><ol><li>You will see a screen waiting for the <b>PS button</b>.</li><li>Press the <b>PS button</b> in the middle of the controller.</li><li class="ok-line">&#9989; The screen changes to the welcome screen.</li></ol><div class="no"><i>If nothing happens:</i> press <b>Enter</b> or <b>Space</b> on the keyboard.</div></div></section>
+<section class="step" data-id="2.2"><input type="checkbox"><div class="body"><h3>2.2 Make your profile</h3><ol><li>Follow the questions on screen. Move with the left stick and press <b>&#10005;</b> to choose.</li><li>For your <b>name</b>, press &#10005; on the name box. A keyboard appears on the screen.</li><li>Move the stick to each letter and press <b>&#10005;</b> to type it. When the name is typed, choose <b>Done</b> or <b>Save</b>.</li><li>Pick a picture if it asks.</li><li class="ok-line">&#9989; You land on the home screen with your name in the top left.</li></ol></div></section>
+
+<h2>PART 3: SIGN IN TO YOUR GAME STORES</h2>
+<section class="step" data-id="3.1"><input type="checkbox"><div class="body"><h3>3.1 Open the sign-in screen</h3><ol><li>On the home screen, push the stick <b>up</b> to the top bar.</li><li>Move <b>right</b> to the <b>gear</b> icon (Settings) and press <b>&#10005;</b>.</li><li>Choose <b>Games &amp; library</b> and press <b>&#10005;</b>.</li><li class="ok-line">&#9989; You see rows for <b>Steam</b>, <b>Ubisoft Connect</b> and <b>Epic Games</b>, each saying "Sign in".</li></ol></div></section>
+<section class="step" data-id="3.2"><input type="checkbox"><div class="body"><h3>3.2 Sign in to Steam</h3><ol><li>Press <b>&#10005;</b> on <b>Steam</b>.</li><li>A Steam page opens. The <b>stick now moves a pointer</b> like a mouse. Move it over the username box and press <b>&#10005;</b>.</li><li>A keyboard appears. Type your Steam username, then choose <b>Done</b>.</li><li>Do the same for the password box.</li><li>Move the pointer to <b>Sign in</b> and press <b>&#10005;</b>.</li><li>If Steam asks for a code, get it from your phone or email and type it the same way.</li><li class="ok-line">&#9989; The Steam row says <b>Signed in</b>.</li></ol><div class="no"><i>If it doesn't work:</i> you can type with a real keyboard instead. If the page goes blank, press <b>&#9675;</b> and try again.</div></div></section>
+<section class="step" data-id="3.3"><input type="checkbox"><div class="body"><h3>3.3 Sign in to Epic Games</h3><ol><li>Press <b>&#10005;</b> on <b>Epic Games</b>.</li><li>Do the same as Steam: pointer over a box, &#10005;, type, <b>Done</b>, then <b>Sign in</b>.</li><li class="ok-line">&#9989; The Epic row says <b>Signed in</b>.</li></ol></div></section>
+<section class="step" data-id="3.4"><input type="checkbox"><div class="body"><h3>3.4 Sign in to Ubisoft Connect (the longest one, take your time)</h3>
+<p>Ubisoft does not allow the console's own browser, so this uses Chrome.</p>
+<ol>
+<li>Press <b>&#10005;</b> on <b>Ubisoft Connect</b> in the console. A small instructions window opens on this screen, and Chrome opens the Ubisoft login.</li>
+<li>In Chrome, type your Ubisoft email and password with the real keyboard and sign in.</li>
+<li>You may land on a <b>"page can't be found" (404)</b> error. That is normal. Leave it.</li>
+<li>In the small window, press <b>Open Ubisoft page again</b>.</li>
+<li>You should see <b>Welcome back!</b> with a blue <b>Continue</b> button. <b>Do not press Continue.</b></li>
+<li><b>First time only: make the bookmark.</b> Copy this code: press <b>Copy code</b> under the box. If the button does nothing, click in the box, press <b>Ctrl + A</b>, then <b>Ctrl + C</b>.
+<textarea id="code" readonly spellcheck="false">javascript:(async()=>{try{var o={a:localStorage.getItem('PRODloginData'),b:localStorage.getItem('PRODrememberMe'),c:localStorage.getItem('PRODlastProfile')};if(!o.a&&!o.b){alert('Not signed in to Ubisoft here yet.');return}var t='MYCONSOLE-UBI:'+btoa(unescape(encodeURIComponent(JSON.stringify(o))));var x=document.createElement('textarea');x.value=t;x.style.position='fixed';x.style.opacity='0';document.body.appendChild(x);x.focus();x.select();var k=false;try{k=document.execCommand('copy')}catch(e){}x.remove();if(!k)await navigator.clipboard.writeText(t);alert('Copied '+t.length+' characters. Go back to the console and press Continue.')}catch(e){alert('Could not copy: '+e.message)}})()</textarea>
+<button id="copy" type="button">Copy code</button> <span id="copied" class="ok-line"></span></li>
+<li>In Chrome, on the Welcome back page, press <b>Ctrl + D</b>. Change the name to <code>Send to console</code> and press <b>Done</b>.</li>
+<li>Right-click that bookmark (in the bar at the top, or under <b>All Bookmarks</b>) and choose <b>Edit</b>.</li>
+<li>Click in the <b>URL</b> box, press <b>Ctrl + A</b>, then <b>Ctrl + V</b>. Check that the URL <b>starts with the word <code>javascript:</code></b>. If Chrome removed it, type <code>javascript:</code> at the very start. Press <b>Save</b>.</li>
+<li>Still on the Welcome back page, click the <b>Send to console</b> bookmark.</li>
+<li>A box says <b>Copied</b> with a number. Press <b>OK</b>.</li>
+<li>In the small window, press <b>Continue</b>.</li>
+<li class="ok-line">&#9989; The console shows <b>Signed in</b> on the Ubisoft row.</li>
+</ol>
+<div class="no"><i>If it doesn't work:</i><br>&bull; <b>"Not signed in to Ubisoft here yet":</b> press <b>Open Ubisoft page again</b>, sign in on that page, then click the bookmark again.<br>&bull; <b>"Access is denied for this document":</b> you are on an error page. Press <b>Open Ubisoft page again</b> and use the Welcome back page.<br>&bull; <b>The bookmark does nothing:</b> the URL does not start with <code>javascript:</code>. Edit it again.<br>&bull; <b>The console says "Nothing copied yet":</b> click the bookmark again, then press Continue.<br><i>After the first time, you do not need to make the bookmark again. It is saved: just click it.</i></div></div></section>
+<section class="step" data-id="3.5"><input type="checkbox"><div class="body"><h3>3.5 EA app, GOG, Xbox</h3><p>Nothing to sign in. Their installed games are found when you scan in Part 6. Tick this box once you have read it.</p></div></section>
+
+<h2>PART 4: THE FREE KEYS (covers, name art, descriptions)</h2>
+<p>These let the console find cover pictures, name art and game info for all your games. They are free. Use the keyboard and mouse for the websites.</p>
+<section class="step" data-id="4.1"><input type="checkbox"><div class="body"><h3>4.1 SteamGridDB key (cover art and game name art)</h3><ol><li>In Chrome, go to <a href="https://www.steamgriddb.com">steamgriddb.com</a>.</li><li>Press <b>Sign in</b> and log in with Steam.</li><li>Click your name or avatar, then open <b>Preferences</b>.</li><li>Find the <b>API</b> tab and press <b>Generate API key</b>.</li><li>Select the key and press <b>Ctrl + C</b> to copy it.</li><li>In the console, go to <b>Settings &rarr; Games &amp; library</b>.</li><li>Press <b>&#10005;</b> on <b>SteamGridDB key (game cover art)</b>.</li><li>Type the key with the on-screen keyboard, or paste it with <b>Ctrl + V</b> if you have a keyboard. Choose <b>Done</b>.</li><li class="ok-line">&#9989; The row says <b>Set</b>.</li></ol></div></section>
+<section class="step" data-id="4.2"><input type="checkbox"><div class="body"><h3>4.2 RAWG key (descriptions, release year, developer)</h3><ol><li>In Chrome, go to <a href="https://rawg.io/apidocs">rawg.io/apidocs</a>.</li><li>Press <b>Get API Key</b> and make a free account. Check your email if it asks you to verify.</li><li>Copy the key it shows you.</li><li>In the console, press <b>&#10005;</b> on <b>RAWG key (descriptions, year, developer)</b>.</li><li>Enter the key the same way, then <b>Done</b>.</li><li class="ok-line">&#9989; The row says <b>Set</b>.</li></ol></div></section>
+<section class="step" data-id="4.3"><input type="checkbox"><div class="body"><h3>4.3 Steam API key (achievements and friends)</h3><ol><li>In Chrome, go to <a href="https://steamcommunity.com/dev/apikey">steamcommunity.com/dev/apikey</a> and log in.</li><li>For "Domain Name" type <code>localhost</code> and agree to the terms.</li><li>Press <b>Register</b> and copy the key.</li><li>In the console, press <b>&#10005;</b> on <b>Steam API key (achievements and friends)</b>, enter the key, then <b>Done</b>.</li><li>In Steam, open your profile, go to <b>Edit Profile &rarr; Privacy Settings</b> and set <b>Game details</b> to <b>Public</b>.</li></ol><div class="no"><i>If a key does not work:</i> copy the whole key with no spaces. The keys are 32 characters. If a website looks different from what is written here, send Frankie a screenshot.</div></div></section>
+
+<h2>PART 5: SPOTIFY (you skip this one)</h2>
+<section class="step" data-id="5.1"><input type="checkbox"><div class="body"><h3>5.1 Skip Spotify</h3><p>The Spotify music controls and cover art need <b>Spotify Premium</b>, and you do not have it. <b>So skip this part: do nothing, and just tick the box.</b></p><p>You can still use Spotify normally: open the <b>Spotify</b> tile on the home screen and it plays in its own window. Only the extra buttons and cover art in the control panel are skipped.</p></div></section>
+
+<h2>PART 6: FIND ALL YOUR GAMES</h2>
+<section class="step" data-id="6.1"><input type="checkbox"><div class="body"><h3>6.1 Scan</h3><ol><li>In the console, go to <b>Settings &rarr; Games &amp; library</b>.</li><li>Press <b>&#10005;</b> on <b>Rescan games</b>.</li><li>Wait <b>5 to 10 minutes</b>. Covers and name art keep loading in the background.</li></ol></div></section>
+<section class="step" data-id="6.2"><input type="checkbox"><div class="body"><h3>6.2 Check</h3><ol><li>Go to the <b>Library</b> on the home screen and push the stick down to see all your games.</li><li class="ok-line">&#9989; Most games should have a cover picture, and when you highlight one you should see its description on the right.</li></ol></div></section>
+
+<h2>IF SOMETHING GOES WRONG</h2>
+<div class="rules"><ul>
+<li><b>No covers or descriptions:</b> check that the keys in Part 4 say <b>Set</b>, then run <b>Rescan games</b> again and wait 10 minutes.</li>
+<li><b>A game has no picture or name art after 10 minutes:</b> write down its name and send it to Frankie.</li>
+<li><b>The console stops responding to the controller:</b> press any button once. If that does not help, unplug the controller, wait 10 seconds and plug it back in.</li>
+<li><b>A website window opens and the stick will not move the pointer:</b> press <b>&#9675;</b> to go back and redo that step.</li>
+</ul></div>
+</main>
+<script>
+(function () {
+  var steps = [].slice.call(document.querySelectorAll('.step')), g = window.guide, wasDone = false, closing = false;
+  function state() { var o = {}; steps.forEach(function (s) { o[s.dataset.id] = s.querySelector('input').checked; }); return o; }
+  function paint(save) {
+    var n = 0; steps.forEach(function (s) { var c = s.querySelector('input').checked; s.classList.toggle('ok', c); if (c) n++; });
+    document.getElementById('fill').style.width = (100 * n / steps.length) + '%';
+    document.getElementById('cnt').textContent = n + ' of ' + steps.length + ' steps done';
+    var all = n === steps.length; document.getElementById('done').style.display = all ? 'block' : 'none';
+    if (save && g) g.save(state());
+    if (all && !wasDone && !closing && save) { closing = true; setTimeout(function () { if (g) g.done(); try { window.close(); } catch (e) {} }, 3500); }
+    if (!all) closing = false;
+  }
+  steps.forEach(function (s) { s.querySelector('input').addEventListener('change', function () { paint(true); }); });
+  document.getElementById('copy').addEventListener('click', function () {
+    var t = document.getElementById('code'); t.focus(); t.select(); var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    document.getElementById('copied').textContent = ok ? 'Copied. Now go to the bookmark step.' : 'Press Ctrl + C now (the code is selected).';
+  });
+  Promise.resolve(g ? g.load() : null).then(function (st) {
+    if (st && st.checked) steps.forEach(function (s) { s.querySelector('input').checked = !!st.checked[s.dataset.id]; });
+    wasDone = !!(st && st.done); paint(false);
+  });
+})();
+</script></body></html>

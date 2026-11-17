@@ -21,6 +21,7 @@ WHAT IT CHANGES
   - Ubisoft sign-in: the instructions are a small window on the second monitor and the Ubisoft page opens there too; the console no longer jumps back in front
   - Game name art: if Steam/Epic/GOG have no logo for a game and you set a SteamGridDB key, the logo comes from SteamGridDB
   - NEW: a Setup guide checklist window opens on the second monitor about 20 seconds after the first launch and closes itself when every box is ticked (also under Settings > Games & library > Setup guide)
+  - FIX: a fresh install now asks for the name and picture (it used to skip it and show "Frankie")
   - Prime Video and Disney+ show their logo instead of plain text
 
 HOW TO UPLOAD ON GITHUB.COM (no GitHub Desktop needed)

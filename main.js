@@ -123,7 +123,7 @@ function sanitize(s) {
     intro: s.intro !== false,
     saver: [0, 3, 5, 10, 20, 30].includes(s.saver) ? s.saver : 10,
     introEnhance: s.introEnhance === true,
-    profileSet: s.profileSet === true || /^avatar-[a-z0-9]+\.jpg$/.test(s.avatarFile || '') || (typeof s.profileName === 'string' && s.profileName.trim() !== ''),   // false only on a brand-new install: the console then asks for a name and picture first
+    profileSet: s.profileSet === true || /^avatar-[a-z0-9]+\.jpg$/.test(s.avatarFile || '') || (s.profileSet !== false && typeof s.profileName === 'string' && s.profileName.trim() !== ''),   // v1265: a fresh install saves profileSet:false with the default name, which must not count as a profile you made   // false only on a brand-new install: the console then asks for a name and picture first
     profileName: typeof s.profileName === 'string' && s.profileName.trim() ? s.profileName.trim().slice(0, 24) : 'Frankie',
     introVideo: /^startup-[a-z0-9]+\.(mp4|webm)$/.test(s.introVideo || '') ? s.introVideo : '',
     introVideoPs: /^startup-[a-z0-9]+\.(mp4|webm)$/.test(s.introVideoPs || '') ? s.introVideoPs : '',   // v1091: the startup video used when a PlayStation controller is the one in use
