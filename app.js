@@ -3034,7 +3034,7 @@ let lastNav = 0;
 let glideRaf = 0;
 const glMap = new WeakMap();
 let scrollBusyT = 0;
-function scrollBusy() { document.body.classList.add('scrolling'); clearTimeout(scrollBusyT); scrollBusyT = setTimeout(() => document.body.classList.remove('scrolling'), 160); }   // while anything glides, the costly see-through blur on the panels is paused so every frame stays fast
+function scrollBusy() { if (screen === 'library') return; /* v1266: the Library never switches into 'scrolling' mode, so nothing in it changes shade */ document.body.classList.add('scrolling'); clearTimeout(scrollBusyT); scrollBusyT = setTimeout(() => document.body.classList.remove('scrolling'), 160); }   // while anything glides, the costly see-through blur on the panels is paused so every frame stays fast
 function glideTo(c, tx, ty, tau = 120) {   // one smooth glide per scroll box, driven like a critically damped spring: it eases into motion and out of it, and a new target just re-aims it while keeping its speed, so holding a direction never stutters
   if (!c) return;
   if (!settings.motion) { if (tx != null) c.scrollLeft = tx; if (ty != null) c.scrollTop = ty; return; }
