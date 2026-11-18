@@ -1845,6 +1845,14 @@ async function instTick() {   // while a game page shows a game that is not inst
   } catch {} finally { instBusy = false; }
 }
 setInterval(instTick, 3000);
+const instWatch = new Map();   // v1267: games you pressed Install on: followed in the background too, so the finished install is noticed even when you left the game page
+setInterval(async () => { try {
+  for (const [id, t0] of [...instWatch]) {
+    const g = games.find((x) => x.id === id); if (!g || g.installed !== false || Date.now() - t0 > 6 * 3600e3) { instWatch.delete(id); continue; }
+    const r = await api.installStatus(id);
+    if (r && r.state === 'done') { instWatch.delete(id); games = await api.libScan(); notify('Installation complete', g.title + ' is ready to play.', id, 'play'); if (screen === 'game' && gameId === id) show('game', 0); else if (screen === 'library' || screen === 'home') show(screen, focusIdx()); }
+  }
+} catch {} }, 15000);
 try { window.consoleApi.onInst((gid) => {   // the install box was cancelled: put the button back this very moment, then let the normal check confirm
   if (screen === 'game' && gid && gameId === gid) { const b = document.querySelector('.gxplayb'), info = document.querySelector('.gxinfo'); if (b && b.classList.contains('gxinst')) { b.classList.remove('gxinst'); b.dataset.gact = 'install'; b.style.removeProperty('--p'); const sp = b.querySelector('span'); if (sp) sp.textContent = 'Install'; if (info) { info.remove(); glowR = null; glowKick(900); } } }
   instTick(); }); } catch {}   // the launcher's confirm box was cancelled: update the page now
@@ -1884,7 +1892,7 @@ async function gameAct(a) {
   }
   const r = await api.gameAction(id, a);
   note(r && r.ok ? (r.note || 'Done.') : r.error);
-  if (a === 'install' && r && r.ok) { setTimeout(instTick, 1200); setTimeout(instTick, 4000); }
+  if (a === 'install' && r && r.ok) { instWatch.set(id, Date.now()); setTimeout(instTick, 1200); setTimeout(instTick, 4000); }
   if (a === 'uninstall' && r && r.ok) {   // once you confirm it in the launcher, the game page flips back to Install
     let n = 0; const t = setInterval(async () => {
       if (++n > 24) return clearInterval(t);
