@@ -884,9 +884,16 @@ function steamWindowTitles() {
   }));
 }
 const instGrow = new Map();
+function epicRoots() {   // v1267: every place Epic may put a game: Program Files, the same folder name on every drive, and the folders your other Epic games already live in
+  const r = new Set([path.join(pf, 'Epic Games'), path.join(pf86, 'Epic Games')]);
+  for (const L of 'CDEFGHIJKLMNOPQRSTUVWXYZ') for (const n of ['Epic Games', 'EpicGames', 'Games\\Epic Games', 'Games']) r.add(L + ':\\' + n);
+  try { const dir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'); for (const f of fs.readdirSync(dir).filter((x) => /\.item$/i.test(x))) { try { const mm = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); if (mm.InstallLocation) r.add(path.dirname(mm.InstallLocation)); } catch {} } } catch {}
+  return [...r].filter((x) => { try { return fs.statSync(x).isDirectory(); } catch { return false; } });
+}
 function launcherGameDir(source, title) {   // where Ubisoft Connect / the EA app put a game while it downloads
   const roots = source === 'Ubisoft Connect' ? [path.join(pf86, 'Ubisoft', 'Ubisoft Game Launcher', 'games'), path.join(pf, 'Ubisoft', 'Ubisoft Game Launcher', 'games')]
-    : source === 'EA app' ? [path.join(pf, 'EA Games'), path.join(pf86, 'EA Games'), path.join(pf, 'Electronic Arts'), path.join(pf86, 'Origin Games')] : [];
+    : source === 'EA app' ? [path.join(pf, 'EA Games'), path.join(pf86, 'EA Games'), path.join(pf, 'Electronic Arts'), path.join(pf86, 'Origin Games')]
+    : source === 'Epic Games' ? epicRoots() : [];
   const want = ubiNorm(title).replace(/^tomclancys?/, ''); if (!want) return null;
   for (const r of roots) { let ents; try { ents = fs.readdirSync(r, { withFileTypes: true }); } catch { continue; }
     for (const e of ents) { if (!e.isDirectory()) continue; const n = ubiNorm(e.name).replace(/^tomclancys?/, ''); if (n && (n === want || n.startsWith(want) || want.startsWith(n))) return path.join(r, e.name); } }
@@ -916,7 +923,8 @@ async function installStatus(gid) {   // is this game being installed right now,
       const dir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests');
       for (const f of fs.readdirSync(dir).filter((x) => /\.item$/i.test(x))) {
         let mm; try { mm = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch { continue; }
-        if (mm.AppName !== app) continue;
+        const cat = decodeURIComponent((g.uri.match(/apps\/([^?]+)/) || [])[1] || '').split(':')[1] || '';
+        if (mm.AppName !== app && !(cat && mm.CatalogItemId === cat) && ubiNorm(mm.DisplayName || '') !== ubiNorm(g.title)) continue;   // v1267: also match by catalog id / name
         if (!mm.bIsIncompleteInstall && mm.InstallLocation && fs.existsSync(mm.InstallLocation)) { state = 'done'; break; }
         total = Number(mm.InstallSize) || Number(mm.DownloadSize) || 0;
         const c = instSize.get(gid), now = Date.now();
@@ -925,7 +933,7 @@ async function installStatus(gid) {   // is this game being installed right now,
       }
     }
   } catch {}
-  if (state === 'idle' && (g.source === 'Ubisoft Connect' || g.source === 'EA app') && (instStarted.has(gid) || instGrow.has(gid) || launcherGameDir(g.source, g.title))) {   // these launchers give no progress file: watch the game's folder grow instead
+  if (state === 'idle' && (g.source === 'Ubisoft Connect' || g.source === 'EA app' || g.source === 'Epic Games') && (instStarted.has(gid) || instGrow.has(gid) || launcherGameDir(g.source, g.title))) {   // these launchers give no progress file: watch the game's folder grow instead
     try {
       const dir = launcherGameDir(g.source, g.title);
       if (dir) {
@@ -5026,7 +5034,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1266';
+const VERSION = 'v1267';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 
