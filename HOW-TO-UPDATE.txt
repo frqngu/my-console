@@ -1,4 +1,4 @@
-CONSOLE UPDATE v1265
+CONSOLE UPDATE v1267
 
 WHAT IS IN HERE (copy the folders and files into the top of your my-console repository on GitHub):
   main.js                  -> top folder (next to package.json), replaces the old one
@@ -11,6 +11,11 @@ WHAT IS IN HERE (copy the folders and files into the top of your my-console repo
   logos\disneyplus.png     -> logos folder (new)
 
 WHAT IT CHANGES
+  - Install progress: a download bar under the button with downloaded of total, percent, speed and time left (Steam exact; Epic, Ubisoft, EA estimated)
+  - Epic games in C:\\Users\\you\\Epic Games are found
+  - Epic games installed on disk but missing from Epic record files (new Epic launcher) are found by their folder
+  - A game you pressed Install on is followed in the background, so a finished install is noticed even if you left the game page
+  - Epic Games installs: the button follows the download (Installing %) instead of staying on Confirm install
   - Library: removing a game keeps your place in the list (no jump to the top)
   - Library: the right-hand panel updates in place, so it no longer flickers when you move between games
   - Real console notification pop-ups (slide in top right with a chime, also saved in Control Center > Notifications): update available, update complete, installation complete, game library complete, game info/box art/trailers finished, signed in
@@ -36,7 +41,7 @@ HOW TO UPLOAD ON GITHUB.COM (no GitHub Desktop needed)
   1. Extract this zip first.
   2. Open github.com/frqngu/my-console and sign in.
   3. Click Add file, then Upload files.
-  4. Open the extracted folder and drag everything inside it (main.js, preload.js, guide-preload.js, renderer, logos) onto the page. Do not drag the folder named console-update-v1265 itself.
-  5. Scroll down, type "update v1265", and click Commit changes.
+  4. Open the extracted folder and drag everything inside it (main.js, preload.js, guide-preload.js, renderer, logos) onto the page. Do not drag the folder named console-update-v1267 itself.
+  5. Scroll down, type "update v1267", and click Commit changes.
   6. Click Actions, then Build Windows installer, then Run workflow.
   7. When the green tick appears, download My-Console-Setup.exe from your link and install it.

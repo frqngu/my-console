@@ -467,6 +467,7 @@ function beginLaunch() {
         L.n = (L.n || 0) + 1; try { if (win) win.webContents.send('launch:dbg', L.last = 'looking for ' + running.title + ' · ' + (pr.ok ? pr.list.length + ' windows' : 'could not read windows') + ' · programs named like it: ' + ((pr.procs || []).map((x) => x.name + '#' + x.pid + (x.hwnd && x.hwnd !== '0' ? ' (has window)' : ' (no window)')).join(', ') || 'none') + (pr.list.length ? ': ' + pr.list.slice(0, 4).map((x) => (x.name || path.basename(x.exe)) + ' ' + x.w + 'x' + x.h + (x.inDir ? ' dir' : '') + (x.title ? ' title' : '')).join(', ') : '')); } catch {}
         if (L.n % 4 === 1) log('launch watch: folder=' + running.folder + ' windows=' + pr.list.map((x) => path.basename(x.exe) + ' ' + x.w + 'x' + x.h + (x.inDir ? ' dir' : '') + (x.title ? ' title' : '') + (x.isNew ? ' new' : '') + (x.fg ? ' fg' : '')).join('; '));
         if (hit) { L.hits = (L.hits || 0) + 1; if (L.hits >= 2 || hit.fg) { if (!hit.inDir && hit.exe) { running.folder = path.dirname(hit.exe); } log('launch: game found: ' + (hit.exe || hit.name) + ' pid ' + hit.pid); running.hwnd = hit.hwnd; try { gameToHome(hit.hwnd); } catch {} running.pid = hit.pid; running.pname = hit.name; return finishLaunch(L); } } else L.hits = 0;
+        if (!hit && !mine.length && Date.now() - L.t0 > 18000 && !L.nbAt) { L.nbAt = Date.now(); try { const nb = await newBigWindow(L.t0 - 2000); if (nb && launching === L && running) { log('launch: no window matched the game folder, using the new big window ' + nb.exe); running.folder = path.dirname(nb.exe); running.hwnd = nb.hwnd; running.pid = nb.pid; running.pname = path.basename(nb.exe, '.exe'); try { gameToHome(nb.hwnd); } catch {} return finishLaunch(L); } } catch {} } else if (L.nbAt && Date.now() - L.nbAt > 6000) L.nbAt = 0;   // Epic games whose folder the console guessed wrong: any new big window after the launch is the game
         if (!hit && !mine.length && !L.retried && Date.now() - L.t0 > 14000) { L.retried = true; const gg = loadLib().games.find((x) => x.id === running.id); if (gg && gg.uri && /^(com\.epicgames\.launcher|uplay):\/\//.test(gg.uri)) { log('launch: nothing opened yet, asking the launcher again'); shell.openExternal(String(gg.uri).replace(/&silent=true/, '')).catch(() => {}); } }   // a launcher that was still starting up can ignore the first request
         const sm = mine.find((x) => !ANTICHEAT.test(x.name + ' ' + x.exe) && x.w > 200); if (sm) { if (!L.anyAt) L.anyAt = Date.now(); if (Date.now() - L.anyAt > 25000) { running.hwnd = sm.hwnd; running.pid = sm.pid; running.pname = sm.name; return finishLaunch(L); } } else L.anyAt = 0;   // the game's small start-up window is waited out (it grows to full size by itself); only a game that stays small for 25 seconds is handed over as it is
       } else {
@@ -616,6 +617,7 @@ function onGuide2(asHome) {
   if (extActive) { extActive = false; extResume = true; }   // the console is in front now, so it is no longer "away"
   endLaunch();
   if (mouseState) setMouse(false, true); else if (!win.isFocused() || win.isMinimized()) bringToFront();
+  for (const t of [120, 450, 900, 1600, 2800]) setTimeout(() => { try { if (!win || win.isDestroyed()) return; if (!win.isFocused()) { win.show(); win.focus(); if (helper) sendHelper('front ' + consoleHwnd()); } if (!win.webContents.isFocused()) win.webContents.focus(); } catch {} }, t);   // the controller only works while the page itself has the keyboard focus: it is given back without a mouse click
   { const t0 = Date.now(), mode = String(asHome); setTimeout(async () => { try { if (!win) return; const f = win.isFocused(); log('menu check (' + mode + ') after ' + (Date.now() - t0) + ' ms: console focused=' + f + ' visible=' + win.isVisible() + ' running=' + (running ? running.title : '-') + ' launching=' + !!launching); } catch {} }, 1300); }   // for the log: did the console really come forward?
   if (asHome === 'xb' || asHome === true) { kbMenuOpen = false; kbMenuAt = Date.now(); }
   if (asHome === 'xb') { if (wasAway) { gameAudio(true); win.webContents.send('homebtn'); } else win.webContents.send('gohome'); return; }   // the Xbox button, tapped: inside a game it brings back that game's page, anywhere else the home page
@@ -830,7 +832,7 @@ const sizeMemo = new Map();
 async function sizeEstimate(title) {   // these launchers never say how big a game is: the Steam store's "storage needed" figure for the same game is the best stand-in
   const key = ubiNorm(title); if (sizeMemo.has(key)) return sizeMemo.get(key);
   const f = path.join(themeDir(), 'sizes.json'); let db = {}; try { db = JSON.parse(fs.readFileSync(f, 'utf8')) || {}; } catch {}
-  const hit = db[key]; if (hit && (hit.b || Date.now() - (hit.t || 0) < 3 * 86400000)) { sizeMemo.set(key, hit.b || 0); return hit.b || 0; }
+  const hit = db[key]; if (hit && (hit.b || Date.now() - (hit.t || 0) < 3600000)) { sizeMemo.set(key, hit.b || 0); return hit.b || 0; }
   let bytes = 0;
   try {
     const H = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36' };
@@ -957,9 +959,9 @@ async function installStatus(gid) {   // is this game being installed right now,
   if (state === 'idle' && instStarted.has(gid) && Date.now() - instStarted.get(gid) < 180000) state = 'waiting';
   if (state === 'done' || state === 'idle') { instSamples.delete(gid); if (state === 'done') instStarted.delete(gid); return { state }; }
   let eta = null, speed = 0;
-  if (state === 'installing' && total > 0) {
+  if (state === 'installing') {   // v1267: the speed is worked out even when the total size is unknown
     const now = Date.now(), s = instSamples.get(gid) || []; s.push({ t: now, d: done }); while (s.length > 2 && now - s[0].t > 90000) s.shift(); instSamples.set(gid, s);
-    const a = s[0], dt = (now - a.t) / 1000; if (dt >= 6 && done > a.d) { speed = (done - a.d) / dt; eta = Math.round((total - done) / speed); }
+    const a = s[0], dt = (now - a.t) / 1000; if (dt >= 6 && done > a.d) { speed = (done - a.d) / dt; if (total > 0) eta = Math.round(Math.max(0, total - done) / speed); }
   }
   return { state, pct: total > 0 ? Math.max(0, Math.min(1, done / total)) : 0, eta, speed, total, done, approx };
 }
@@ -5045,7 +5047,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1267';
+const VERSION = 'v1270';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 
