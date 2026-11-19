@@ -885,7 +885,7 @@ function steamWindowTitles() {
 }
 const instGrow = new Map();
 function epicRoots() {   // v1267: every place Epic may put a game: Program Files, the same folder name on every drive, and the folders your other Epic games already live in
-  const r = new Set([path.join(pf, 'Epic Games'), path.join(pf86, 'Epic Games')]);
+  const r = new Set([path.join(pf, 'Epic Games'), path.join(pf86, 'Epic Games'), path.join(require('os').homedir(), 'Epic Games'), path.join(require('os').homedir(), 'Games', 'Epic Games'), path.join(require('os').homedir(), 'Documents', 'Epic Games')]);   // the new Epic launcher installs into C:\\Users\\you\\Epic Games
   for (const L of 'CDEFGHIJKLMNOPQRSTUVWXYZ') for (const n of ['Epic Games', 'EpicGames', 'Games\\Epic Games', 'Games']) r.add(L + ':\\' + n);
   try { const dir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'); for (const f of fs.readdirSync(dir).filter((x) => /\.item$/i.test(x))) { try { const mm = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); if (mm.InstallLocation) r.add(path.dirname(mm.InstallLocation)); } catch {} } } catch {}
   return [...r].filter((x) => { try { return fs.statSync(x).isDirectory(); } catch { return false; } });
@@ -1192,6 +1192,17 @@ async function scanAll(l) {
   if (!l.ubiRestore) { l.excluded = (l.excluded || []).filter((id) => !/^ubi/.test(id) && !/-ubisoftconnect$/.test(id)); l.ubiRestore = 1; }   // v1087: Ubisoft games removed while the list was being sorted out come back once
   const owned = await accountGames(l);
   for (const g of owned) { const f = found.find((x) => x.id === g.id); if (f && g.source === 'Ubisoft Connect' && g.title) f.title = g.title; }   // installed Ubisoft games get their real name
+  try {   // v1267: Epic games that are installed on disk but that Epic's record files do not list (the new Epic launcher keeps them somewhere else): found by their folder, matched by name
+    const eroots = epicRoots();
+    for (const g of owned) {
+      if (g.source !== 'Epic Games' || have.has(g.id) || !g.uri) continue;
+      const want = ubiNorm(g.title); if (!want) continue; let hit = null;
+      for (const r of eroots) { let ents; try { ents = fs.readdirSync(r, { withFileTypes: true }); } catch { continue; }
+        for (const e of ents) { if (!e.isDirectory() || ubiNorm(e.name) !== want) continue; const d = path.join(r, e.name); if (fs.existsSync(path.join(d, '.egstore')) && (() => { try { return fs.readdirSync(path.join(d, '.egstore', 'bps')).length === 0; } catch { return true; } })()) { hit = d; break; } }
+        if (hit) break; }
+      if (hit) { found.push({ id: g.id, title: g.title, source: 'Epic Games', folder: hit, uri: g.uri.replace(/\?action=install.*$/, '?action=launch&silent=true') }); have.add(g.id); log('epic: ' + g.title + ' found installed in ' + hit); }
+    }
+  } catch {}
   for (const g of owned) {
     if (g.ubiSpace) { const n3 = (t) => ubiNorm(t).replace(/^tomclancys?/, ''); if (found.some((x) => x.source !== 'Ubisoft Connect' && n3(x.title) === n3(g.title))) continue; }   // v1085: bought on Steam/Epic: it is already listed there
     if (g.ubiSpace) { const f = found.find((x) => x.source === 'Ubisoft Connect' && x.id !== g.id && ubiNorm(x.title).replace(/^tomclancys?/, '') === ubiNorm(g.title).replace(/^tomclancys?/, '')); if (f) continue; }   // already there as an installed game
