@@ -95,3 +95,9 @@ body.is-game { --gA:var(--skacc,#7cf0c4); --gG:var(--skglow,124,240,196); }
 /* v974: a cover that is not square is shown WHOLE inside the square, never cut off */
 .gv-cover .gxart:not([data-sq]):not(.noart) { background-size:contain; background-repeat:no-repeat; background-position:center; background-color:#0c0e12; }
 #launch.hascv .lcv.fit { background-size:contain !important; background-repeat:no-repeat !important; background-color:#0c0e12 !important; }
+
+/* v1267: download bar under the Install button */
+.gxinfo .gxbar { width:calc(46 * var(--w)); max-width:100%; height:calc(.7 * var(--w)); border-radius:99px; background:rgba(255,255,255,.18); overflow:hidden; margin-bottom:calc(.7 * var(--w)); }
+.gxinfo .gxbar i { display:block; height:100%; border-radius:99px; background:var(--gA, #5aa0ff); transition:width 1.2s linear; }
+.gxinfo .gxbar.ind i { width:35% !important; animation:gxind 1.4s ease-in-out infinite alternate; transition:none; }
+@keyframes gxind { from { margin-left:0; } to { margin-left:65%; } }

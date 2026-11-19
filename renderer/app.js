@@ -760,7 +760,7 @@ ICON.speaker = ico('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4
 ICON.mic = ico('<rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0013 0M12 18v3"/>');
 ICON.music = ico('<path d="M9 17.5V5.5l10-2v12"/><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="15.5" r="2.5"/>');
 ICON.switcher = ico('<rect x="4" y="7" width="13" height="10" rx="1.6"/><path d="M8 4h12v10"/>');
-const GD_TABS_X = [['profile', 'profile'], ['friends', 'people'], ['library', 'library'], ['settings', 'gear']];
+const GD_TABS_X = [['profile', 'profile'], ['notifs', 'bell'], ['friends', 'people'], ['library', 'library'], ['settings', 'gear']];
 const GD_TABS_PS = [['home', 'home', 'Home'], ['capture', 'cam', 'Capture'], ['notifs', 'bell', 'Notifications'], ['friends', 'gamebase', 'Game Base'], ['music', 'music', 'Music'], ['volume', 'speaker', 'Sound'], ['party', 'mic', 'Mic'], ['controller', 'pad', 'Accessories'], ['profile', 'profile', 'Profile'], ['power', 'power', 'Power']];
 let psCust = false, psGrab = false;
 const psFixed = (k) => k === 'home' || k === 'power';
@@ -782,6 +782,7 @@ const gdStrip = () => gdTabs().map(([k, ic, lb]) => {
     if (k === 'controller' && cbattPct >= 0) bd = `<em class="gd-bd bat">${cbattPct}%</em>`;
     if (k === 'profile') bd = '<em class="gd-bd dot on"></em>';
   }
+  if (padKind() !== 'ps' && k === 'notifs' && notifUnread) bd = '<em class="gd-bd dot"></em>';
   const ck = padKind() === 'ps' && psCust ? `<i class="gd-ck${psHidden(k) ? '' : ' on'}${psFixed(k) ? ' fx' : ''}"></i>` : '';
   return `<button class="gd-tb${k === (guideTab === 'recents' ? 'library' : guideTab) ? ' cur' : ''}${psCust && psGrab && k === guideTab ? ' grab' : ''}${padKind() === 'ps' && psHidden(k) ? ' hid' : ''}" tabindex="-1" data-l="${lb || ''}" data-gd="tab:${k}">${inner}${bd}${ck}</button>`;
 }).join('');
@@ -976,6 +977,7 @@ function psBody() {   // the PlayStation Control Center, tab by tab (null = use 
 function guideBody() {
   if (guidePage === 'ptjoin') return padKind() === 'ps' ? psJoin() : partyJoinPage();
   if (padKind() === 'ps') { const r = psBody(); if (r != null) return r; }
+  if (guideTab === 'notifs') { notifUnread = false; setTimeout(() => { try { const st = document.querySelector('#guide .gd-tabs'); if (st) st.innerHTML = gdStrip(); } catch {} }, 0); return '<h2 class="gd-h">Notifications</h2>' + (notifHist.length ? notifHist.slice(0, 15).map((n) => `<button class="gd-i" data-nav data-gd="${n.gid ? 'game:' + esc(n.gid) : 'notif:none'}">${ICON.bell}<span>${esc(n.t)}<small style="display:block;opacity:.6;font-size:.8em">${ago(n.at)}</small></span></button>`).join('') + '<div class="gd-sep"></div>' + gdI(null, 'Clear all', 'data-gd="notif:clear"') : '<p class="gd-t">No new notifications.</p>'); }
   if (guideTab === 'friends') {
     const party = partyInline();
     if (!friendsData) return `<h2 class="gd-h">Friends &amp; party</h2>${party}<p class="gd-t">Looking for your friends\u2026</p>`;
@@ -1091,6 +1093,7 @@ async function guideAct(a) {
   if (a.startsWith('npplay:')) { await spPlay({ uris: [a.slice(7)] }); setTimeout(npPoll, 900); return; }
   if (a.startsWith('vol:')) { const k = a.slice(4); const cur = Math.round((settings[k] ?? (k === 'sfxVol' ? 0.7 : 0.3)) * 10); setLocal({ [k]: ((cur + 1) % 11) / 10 }); SND.play('select'); return renderGuide(undefined, true); }
   if (a === 'pscust') return psCustToggle();
+  if (a === 'notif:none') return;
   if (a === 'notif:clear') { notifHist = []; return renderGuide(undefined, true); }
   if (a === 'tgl:sfx') { setLocal({ sfx: settings.sfx === false }); if (settings.sfx !== false) SND.play('on'); return renderGuide(undefined, true); }
   if (a === 'tgl:music') { setLocal({ music: settings.music === false }); SND.unlock(); return renderGuide(undefined, true); }
@@ -1834,7 +1837,17 @@ async function instTick() {   // while a game page shows a game that is not inst
       if (r.state === 'waiting') b.dataset.gact = 'install';   // pressing it again brings the launcher's window back
       const isNew = !info;
       if (!info) { info = document.createElement('div'); info.className = 'gxinfo'; const bt = document.querySelector('.gxbtns'); if (bt) bt.insertAdjacentElement('afterend', info); }
-      if (info) info.textContent = r.state === 'waiting' ? 'Confirm the install in the launcher window' : (r.total ? (r.approx ? '\u2248 ' : '') + Math.floor(pct) + '%  \u00b7  ' + fmtEta(r.eta) : (r.done / 1073741824).toFixed(1) + ' GB downloaded');
+      if (info) {   // v1267: a download bar under the button, with  downloaded of total, percent, speed and time left
+        if (r.state === 'waiting') info.textContent = 'Confirm the install in the launcher window';
+        else {
+          const gb = (n) => (n / 1073741824).toFixed(n >= 1e10 ? 0 : 1) + ' GB';
+          const spd = r.speed > 0 ? '  \u00b7  ' + (r.speed >= 1048576 ? (r.speed / 1048576).toFixed(r.speed >= 1e7 ? 0 : 1) + ' MB/s' : Math.max(1, Math.round(r.speed / 1024)) + ' KB/s') : '';
+          const txt = r.total ? gb(r.done) + ' of ' + (r.approx ? '\u2248 ' : '') + gb(r.total) + '  \u00b7  ' + Math.floor(pct) + '%' + (r.eta != null ? '  \u00b7  ' + fmtEta(r.eta) : '') + spd : gb(r.done) + ' downloaded' + spd;
+          if (!info.querySelector('.gxbar')) info.innerHTML = '<div class="gxbar"><i></i></div><div class="gxtxt"></div>';
+          const bar = info.querySelector('.gxbar'); bar.classList.toggle('ind', !r.total); bar.firstChild.style.width = (r.total ? Math.min(100, pct) : 100) + '%';
+          info.querySelector('.gxtxt').textContent = txt;
+        }
+      }
       if (isNew) { glowR = null; glowKick(900); }   // the text line shifts the page up; the white outline follows the button again
     } else if (r.state === 'done') {
       games = await api.libScan(); notify('Installation complete', g.title + ' is ready to play.', g.id, 'play'); show('game', 0);
@@ -3980,7 +3993,7 @@ function tick() { tickBattery(); const t = new Date().toLocaleTimeString('en-US'
       clearTimeout(e._t); e._t = setTimeout(() => { if (!guideOn) { e.classList.remove('on'); } }, 4000);
     } catch {}
   });
-  window.consoleApi.onHomeBtn(() => { lockHero(300); comeIn(); if (introOn) { if (introStage === 1 && signPressWait) signReveal(); return; } silenceAll(false); if (testing) { xboxLit = performance.now() + 700; return; } if (screen === 'home' && !guideOn && !osk && !menu && !(exitRet && performance.now() - exitRet.t < 4000) && !(extReturn && extReturn.game)) { extReturn = null; return; }   // already on the Home dashboard: the Xbox button does nothing there
+  window.consoleApi.onHomeBtn(() => { { const n = performance.now(); if (window.__hbAt && n - window.__hbAt < 800) return; window.__hbAt = n; } lockHero(300); comeIn(); if (introOn) { if (introStage === 1 && signPressWait) signReveal(); return; } silenceAll(false); if (testing) { xboxLit = performance.now() + 700; return; } if (screen === 'home' && !guideOn && !osk && !menu && !(exitRet && performance.now() - exitRet.t < 4000) && !(extReturn && extReturn.game)) { extReturn = null; return; }   // already on the Home dashboard: the Xbox button does nothing there
     closeMenu(true); if (osk) oskClose(null); if (guideOn) closeGuide(true); (async () => {
     const t0 = performance.now(); let r = extReturn;
     const onHomeNow = screen === 'home' && !(exitRet && performance.now() - exitRet.t < 4000);

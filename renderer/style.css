@@ -4215,3 +4215,6 @@ body.scrolling .ltop, body.scrolling .lbot, body.scrolling.lib footer, body.scro
 body.wp .ltop, body.wp .lbot, body.wp.lib footer, body.wp .lside, body.wp .ldet, body.wp .lpanel, body.wp .gdet { background:rgba(0,0,0,.62) !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; transition:none !important; }
 body.lib .lpanel .lbox > div, body.lib .lpanel .lhints { background:rgba(255,255,255,.04) !important; }
 body.scrolling .topbar .ti, body.scrolling .topbar .prof, body.scrolling .sbtn, body.scrolling .sibtn { transition:none !important; }
+
+.gd-tb { position:relative; }
+body:not(.gd-ps) #guide .gd-tb .gd-bd.dot { position:absolute; top:28%; right:30%; width:calc(var(--w) * .55); height:calc(var(--w) * .55); border-radius:50%; background:#ff4d4d; padding:0; }
