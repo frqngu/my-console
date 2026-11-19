@@ -508,13 +508,20 @@ async function keepFullscreen(L) {
     if ((await winIsFull(hw)) === 'win' && (await fgHwnd()) === String(hw)) { await sleep(300); sendHelper('key altenter'); return; }   // Alt+Enter only when the game itself has the focus, so it can never go to the console
   }
 }
-async function ensureFront(id) {   // for a few seconds after the handoff the game keeps the screen, even if its launcher pops up over it
+let lastGuideAt = 0;
+async function ensureFront(id) {   // after the handoff the game keeps the screen for a while, even if its launcher pops up over it or its window is replaced
   if (process.platform !== 'win32' || !id) return;
-  for (let i = 0; i < 8; i++) {
+  const t0 = Date.now();
+  for (let i = 0; i < 22; i++) {
     await sleep(1500);
-    if (!running || running.id !== id || !win || win.isFocused() || mouseState || extActive) return;
-    const hw = running.hwnd; if (!hw) continue;
-    if ((await fgHwnd()) !== String(hw)) { sendHelper('front ' + hw); await bringWindow(hw); }
+    if (!running || running.id !== id || !win || mouseState || extActive || lastGuideAt > t0) return;   // you pressed the Xbox button: the console is yours now
+    let hw = running.hwnd;
+    const fg = await fgHwnd();
+    if (hw && fg === String(hw)) { if (i > 4) return; continue; }
+    try { const bw = await bigWindow(running.folder); if (bw) { hw = bw; running.hwnd = bw; } } catch {}   // the game may have replaced its window since the handoff
+    if (!hw) continue;
+    log('keeping the game in front (front window ' + fg + ', game ' + hw + ')');
+    sendHelper('front ' + hw); await bringWindow(hw);
   }
 }
 async function lateFront(id) {   // a launcher took longer than the loading screen waited: when the game finally opens it still gets the screen
@@ -597,7 +604,7 @@ async function gameSnap() {   // holding the button inside a game: a picture of 
     win.webContents.send('game:snap', 'data:image/jpeg;base64,' + jp.toString('base64'));
   } catch (e) { log('game snapshot: ' + e.message); }
 }
-function onGuide(asHome) { openWithUntil = Date.now() + 12000;
+function onGuide(asHome) { openWithUntil = Date.now() + 12000; lastGuideAt = Date.now();
   if (!win) return;
   if (spShown || ytShown || ypShown) leaveApps();
   if (asHome === false && (running || launching) && (!win.isFocused() || win.isMinimized()) && !spShown && !ytShown && !ypShown) { if (leaving) return; leaving = true; gameSnap().then(() => { leaving = false; onGuide2(asHome); }, () => { leaving = false; onGuide2(asHome); }); return; }
@@ -5047,7 +5054,7 @@ ipcMain.handle('br:go', (_e, text) => { const wc = brWc(), u = brNorm(text); if 
 ipcMain.handle('br:clear', async () => { try { const { session } = require('electron'); const ses = session.fromPartition('persist:browser'); await ses.clearStorageData(); await ses.clearCache(); return true; } catch { return false; } });
 
 // ================= v825 =================
-const VERSION = 'v1270';
+const VERSION = 'v1271';
 ipcMain.handle('app:version', () => VERSION);
 const psEnv = (f, env, ms = 60000) => new Promise((res) => { try { execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', f], { windowsHide: true, timeout: ms, maxBuffer: 1 << 20, env: { ...process.env, ...env } }, (e, so, se) => { if (e) log('powershell: ' + String(se || e.message).replace(/\s+/g, ' ').slice(0, 200)); res(e ? '' : String(so || '')); }); } catch { res(''); } });
 
